@@ -153,7 +153,7 @@ curl -fsSL https://raw.githubusercontent.com/w243420707/startup_script/feat/one-
 /opt/startup-script/startup.sh version
 
 # 查看日志
-tail -f /var/log/startup-script/startup-script.log
+tail -f /root/startup-script.log
 ```
 
 ### 部分更新配置
@@ -182,7 +182,7 @@ env TG_BOT_TOKEN='9876543210:XXX' TG_USER_ID='111222333' \
 
 ### 查看日志
 ```bash
-tail -100 /var/log/startup-script/startup-script.log
+tail -100 /root/startup-script.log
 journalctl -u startup-script -n 100  # systemd
 rc-service startup-script status      # OpenRC
 ```
@@ -221,6 +221,11 @@ rm /var/lib/startup-script/step-*.state
 ```
 
 ## 更新日志
+
+### 0.9.1 (2026-09-04)
+
+- 🗂️ 调整日志文件位置从 `/var/log/startup-script/` 改为 `/root/startup-script.log`，更方便查看
+- 🐛 修复 install.sh 的 POSIX shell 兼容性问题（`[[` 改为 `[`）
 
 ### 0.9.0 (2024-01-15)
 

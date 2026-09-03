@@ -2,7 +2,7 @@
 
 SCRIPT_NAME="${SCRIPT_NAME:-startup-script}"
 STATE_DIR="${STARTUP_SCRIPT_STATE_DIR:-/var/lib/startup-script}"
-LOG_FILE="${STARTUP_SCRIPT_LOG_FILE:-/var/log/startup-script.log}"
+LOG_FILE="${STARTUP_SCRIPT_LOG_FILE:-/root/startup-script.log}"
 LOCK_FILE="${STARTUP_SCRIPT_LOCK_FILE:-/run/startup-script.lock}"
 COMMAND_RETRIES="${STARTUP_SCRIPT_COMMAND_RETRIES:-3}"
 STEP_RETRIES="${STARTUP_SCRIPT_STEP_RETRIES:-2}"
