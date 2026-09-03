@@ -57,6 +57,8 @@ ExecStart=$V2BX_BINARY server
 Restart=always
 RestartSec=10s
 LimitNOFILE=999999
+StandardOutput=append:/var/log/V2bX.log
+StandardError=append:/var/log/V2bX.log
 
 [Install]
 WantedBy=multi-user.target
@@ -94,6 +96,21 @@ v2bx_install_service() {
   "$generator" > "$temp_path" && chmod "$mode" "$temp_path" && mv -f "$temp_path" "$path" || return 1
   if [[ -d /run/systemd/system ]] && command_exists systemctl; then
     systemctl daemon-reload
+  fi
+  
+  if [[ -d /etc/logrotate.d ]]; then
+    cat > /etc/logrotate.d/V2bX <<'LOGROTATE_EOF'
+/var/log/V2bX.log {
+    daily
+    rotate 7
+    missingok
+    notifempty
+    compress
+    delaycompress
+    copytruncate
+    maxsize 100M
+}
+LOGROTATE_EOF
   fi
 }
 

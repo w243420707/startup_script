@@ -15,7 +15,14 @@ swap_configured() {
   local current_swappiness
   current_swappiness="$(sysctl -n vm.swappiness 2>/dev/null)" || return 1
   [[ "$current_swappiness" == "$SWAP_SWAPPINESS" ]] || return 1
-  grep -Eq "^vm\.swappiness=${SWAP_SWAPPINESS}$" /etc/sysctl.conf
+  
+  if [[ -f /etc/sysctl.conf ]]; then
+    grep -Eq "^vm\.swappiness=${SWAP_SWAPPINESS}$" /etc/sysctl.conf
+  elif [[ -f /etc/sysctl.d/99-swappiness.conf ]]; then
+    grep -Eq "^vm\.swappiness=${SWAP_SWAPPINESS}$" /etc/sysctl.d/99-swappiness.conf
+  else
+    return 0
+  fi
 }
 
 configure_swap() {
@@ -69,11 +76,21 @@ configure_swap() {
     return 1
   }
   
-  sed -i '/vm.swappiness/d' /etc/sysctl.conf || true
-  printf 'vm.swappiness=%d\n' "$SWAP_SWAPPINESS" >> /etc/sysctl.conf || {
-    log_error "Failed to persist vm.swappiness."
-    return 1
-  }
+  if [[ -f /etc/sysctl.conf ]]; then
+    sed -i '/vm.swappiness/d' /etc/sysctl.conf || true
+    printf 'vm.swappiness=%d\n' "$SWAP_SWAPPINESS" >> /etc/sysctl.conf || {
+      log_error "Failed to persist vm.swappiness."
+      return 1
+    }
+  elif [[ -d /etc/sysctl.d ]]; then
+    log_info "/etc/sysctl.conf not found, using /etc/sysctl.d/99-swappiness.conf instead."
+    printf 'vm.swappiness=%d\n' "$SWAP_SWAPPINESS" > /etc/sysctl.d/99-swappiness.conf || {
+      log_error "Failed to persist vm.swappiness."
+      return 1
+    }
+  else
+    log_warn "/etc/sysctl.conf and /etc/sysctl.d not found. Swappiness will not persist across reboots."
+  fi
   
   log_success "Swap configured: ${SWAP_SIZE_MB}MB, swappiness=${SWAP_SWAPPINESS}."
 }

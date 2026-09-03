@@ -432,7 +432,7 @@ main() {
       fi
       trap 'release_lock' EXIT
       persist_startup_environment
-      source "$SCRIPT_DIR/steps/03_cloudflare_ddns.sh"
+      source "$SCRIPT_DIR/steps/04_cloudflare_ddns.sh"
       cf_ddns_sync
       ;;
     ddns-loop)

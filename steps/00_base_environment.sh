@@ -4,11 +4,13 @@ STEP_ID="00"
 STEP_NAME="Base environment"
 STEP_DESCRIPTION="Keep the basic tools required by later setup steps installed."
 
-BASE_PACKAGES=(ca-certificates coreutils curl wget tar gzip unzip grep gawk jq diffutils openssl socat iptables nftables)
-BASE_COMMANDS=(cksum sha256sum base64 tail curl wget tar gzip unzip grep jq cmp openssl socat iptables ip6tables nft)
+BASE_PACKAGES=(ca-certificates coreutils curl wget tar gzip unzip grep gawk jq diffutils openssl socat iptables nftables util-linux procps)
+BASE_COMMANDS=(cksum sha256sum base64 tail curl wget tar gzip unzip grep jq cmp openssl socat iptables ip6tables nft dd swapon swapoff mkswap sysctl)
 
 if [[ "$SYSTEM_OS_FAMILY" == "rhel" ]]; then
   BASE_PACKAGES+=(iproute)
+elif [[ "$SYSTEM_OS_FAMILY" == "alpine" ]]; then
+  BASE_PACKAGES+=(iproute2 linux-headers)
 else
   BASE_PACKAGES+=(iproute2)
 fi
