@@ -227,6 +227,7 @@ rm /var/lib/startup-script/step-*.state
 
 - 🔧 **移除 WireProxy SHA-256 校验**：简化安装流程，避免校验失败
 - 🐛 **修复 WireProxy 安装失败问题**：使用 GitHub 官方源但跳过校验
+- 🔍 **添加详细安装日志**：便于排查安装失败的具体原因
 
 ### 0.9.6 (2026-09-04)
 

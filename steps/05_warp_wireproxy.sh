@@ -98,23 +98,49 @@ wireproxy_install_binary() {
 
   if [[ ! -s "$archive" ]]; then
     rm -f "$archive"
-    run_with_retries "$COMMAND_RETRIES" curl -fL --connect-timeout 15 --max-time 180 "$url" -o "$archive" || return 1
+    echo "[DEBUG] Downloading wireproxy from $url"
+    run_with_retries "$COMMAND_RETRIES" curl -fL --connect-timeout 15 --max-time 180 "$url" -o "$archive" || {
+      echo "[ERROR] Failed to download wireproxy"
+      return 1
+    }
   fi
+  
+  echo "[DEBUG] Archive size: $(ls -lh "$archive" 2>/dev/null || echo 'file not found')"
 
   rm -rf "$extract_dir"
-  mkdir -p "$extract_dir" || return 1
+  mkdir -p "$extract_dir" || {
+    echo "[ERROR] Failed to create extract directory: $extract_dir"
+    return 1
+  }
+  
+  echo "[DEBUG] Extracting archive to $extract_dir"
   tar -xzf "$archive" -C "$extract_dir" || {
+    echo "[ERROR] Failed to extract archive"
     rm -rf "$extract_dir"
     return 1
   }
+  
+  echo "[DEBUG] Extract directory contents:"
+  ls -la "$extract_dir" || echo "[ERROR] Cannot list extract directory"
+  
   [[ -s "$extract_dir/wireproxy" ]] || {
+    echo "[ERROR] wireproxy binary not found in extracted files"
     rm -rf "$extract_dir"
     return 1
   }
+  
+  echo "[DEBUG] Installing wireproxy binary"
   cp "$extract_dir/wireproxy" "$temp_binary" && chmod 0755 "$temp_binary" && mv -f "$temp_binary" "$WIREPROXY_BINARY" &&
     printf '%s\n' "$WIREPROXY_VERSION" > "$WIREPROXY_VERSION_STATE"
   status=$?
   rm -rf "$extract_dir"
+  
+  if [[ $status -eq 0 ]]; then
+    echo "[DEBUG] wireproxy installed successfully"
+  else
+    echo "[ERROR] Failed to install wireproxy binary"
+  fi
+  
   return "$status"
 }
 
