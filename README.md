@@ -10,6 +10,12 @@
 curl -fsSL https://raw.githubusercontent.com/w243420707/startup_script/main/install.sh | sh -s -- '服务器地址:端口' '客户端密钥' 'UUID'
 ```
 
+随机示例（仅用于展示格式，不能用于真实部署）：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/w243420707/startup_script/main/install.sh | sh -s -- 'node-bf7d24.example.com:443' 'qOcYghUDg_6EjFWNQgC19XCtSlEyloHH' 'cbc0244b-56a9-4559-a92c-d3578ff11896'
+```
+
 这条命令会：
 
 1. 下载完整项目到 `/opt/startup-script`
@@ -54,6 +60,11 @@ env NZ_SERVER='新的服务器地址:端口' NZ_CLIENT_SECRET='新的客户端�
 ```
 
 ## 更新日志
+
+### 0.7.6
+
+- 在 README 中增加随机的一键安装完整示例
+- 使用 `example.com` 保留域名，避免示例被误用于真实连接
 
 ### 0.7.5
 
