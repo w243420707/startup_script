@@ -4,10 +4,10 @@
 
 ## 一键安装
 
-使用 root 用户执行，两个参数依次填写客户端密钥和 UUID：
+使用 root 用户执行，三个参数依次填写服务器地址、客户端密钥和 UUID：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/w243420707/startup_script/main/install.sh | sh -s -- '你的客户端密钥' '你的UUID'
+curl -fsSL https://raw.githubusercontent.com/w243420707/startup_script/main/install.sh | sh -s -- '服务器地址:端口' '客户端密钥' 'UUID'
 ```
 
 这条命令会：
@@ -17,27 +17,27 @@ curl -fsSL https://raw.githubusercontent.com/w243420707/startup_script/main/inst
 3. 注册 VPS 开机自动执行的自愈服务
 4. 保存哪吒配置，后续开机无需再次输入变量
 
-默认配置：
+`NZ_TLS` 默认启用：
 
 ```text
-NZ_SERVER=tz.114431.xyz:443
 NZ_TLS=true
 ```
 
-如需修改服务器地址和 TLS，可以额外附加环境变量：
+如需关闭 TLS，可以额外附加环境变量：
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/w243420707/startup_script/main/install.sh | NZ_SERVER='服务器地址:443' NZ_TLS='true' sh -s -- '你的客户端密钥' '你的UUID'
+curl -fsSL https://raw.githubusercontent.com/w243420707/startup_script/main/install.sh | NZ_TLS='false' sh -s -- '服务器地址:端口' '客户端密钥' 'UUID'
 ```
 
 ## 变量说明
 
 ```text
-第一个位置参数：NZ_CLIENT_SECRET（哪吒客户端密钥）
-第二个位置参数：NZ_UUID（哪吒客户端 UUID）
+第一个位置参数：NZ_SERVER（哪吒服务器地址，包含端口）
+第二个位置参数：NZ_CLIENT_SECRET（哪吒客户端密钥）
+第三个位置参数：NZ_UUID（哪吒客户端 UUID）
 ```
 
-两个参数都必须提供，值建议使用单引号包起来。
+三个参数都必须提供，值建议使用单引号包起来。
 
 ## 手动管理
 
@@ -47,13 +47,19 @@ curl -fsSL https://raw.githubusercontent.com/w243420707/startup_script/main/inst
 /opt/startup-script/startup.sh version
 ```
 
-修改哪吒密钥或 UUID：
+修改服务器地址、密钥或 UUID：
 
 ```bash
-env NZ_CLIENT_SECRET='新的客户端密钥' NZ_UUID='新的UUID' /opt/startup-script/startup.sh install --yes
+env NZ_SERVER='新的服务器地址:端口' NZ_CLIENT_SECRET='新的客户端密钥' NZ_UUID='新的UUID' /opt/startup-script/startup.sh install --yes
 ```
 
 ## 更新日志
+
+### 0.7.5
+
+- 将 `NZ_SERVER` 改为一键命令必填变量
+- 一键命令调整为服务器地址、客户端密钥、UUID 三个位置参数
+- 移除源码中的默认服务器地址，避免不同环境误连固定服务端
 
 ### 0.7.4
 

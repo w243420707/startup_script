@@ -143,15 +143,15 @@ persist_nezha_environment() {
     fi
   fi
 
-  saved_server="${STARTUP_NZ_SERVER:-${saved_server:-tz.114431.xyz:443}}"
+  saved_server="${STARTUP_NZ_SERVER:-$saved_server}"
   saved_tls="${STARTUP_NZ_TLS:-${saved_tls:-true}}"
   saved_client_secret="${STARTUP_NZ_CLIENT_SECRET:-$saved_client_secret}"
   saved_uuid="${STARTUP_NZ_UUID:-$saved_uuid}"
   saved_install_url="${STARTUP_NZ_INSTALL_URL:-${saved_install_url:-https://raw.githubusercontent.com/nezhahq/scripts/main/agent/install.sh}}"
   saved_installer_path="${STARTUP_NZ_INSTALLER_PATH:-${saved_installer_path:-$STATE_DIR/agent.sh}}"
 
-  if [[ -z "$saved_client_secret" || -z "$saved_uuid" ]]; then
-    log_error "NZ_CLIENT_SECRET and NZ_UUID are required."
+  if [[ -z "$saved_server" || -z "$saved_client_secret" || -z "$saved_uuid" ]]; then
+    log_error "NZ_SERVER, NZ_CLIENT_SECRET and NZ_UUID are required."
     return 1
   fi
 

@@ -29,14 +29,14 @@ if ! command -v tar >/dev/null 2>&1; then
   exit 1
 fi
 
-NZ_CLIENT_SECRET="${1:-${NZ_CLIENT_SECRET:-}}"
-NZ_UUID="${2:-${NZ_UUID:-}}"
-NZ_SERVER="${NZ_SERVER:-tz.114431.xyz:443}"
+NZ_SERVER="${1:-${NZ_SERVER:-}}"
+NZ_CLIENT_SECRET="${2:-${NZ_CLIENT_SECRET:-}}"
+NZ_UUID="${3:-${NZ_UUID:-}}"
 NZ_TLS="${NZ_TLS:-true}"
 
-if [ -z "$NZ_CLIENT_SECRET" ] || [ -z "$NZ_UUID" ]; then
-  printf '%s\n' '[ERROR] NZ_CLIENT_SECRET and NZ_UUID are required.' >&2
-  printf '%s\n' "Usage: curl -fsSL https://raw.githubusercontent.com/w243420707/startup_script/main/install.sh | sh -s -- 'CLIENT_SECRET' 'UUID'" >&2
+if [ -z "$NZ_SERVER" ] || [ -z "$NZ_CLIENT_SECRET" ] || [ -z "$NZ_UUID" ]; then
+  printf '%s\n' '[ERROR] NZ_SERVER, NZ_CLIENT_SECRET and NZ_UUID are required.' >&2
+  printf '%s\n' "Usage: curl -fsSL https://raw.githubusercontent.com/w243420707/startup_script/main/install.sh | sh -s -- 'SERVER:PORT' 'CLIENT_SECRET' 'UUID'" >&2
   exit 1
 fi
 
