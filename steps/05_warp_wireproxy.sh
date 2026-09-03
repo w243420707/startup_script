@@ -4,7 +4,7 @@ STEP_ID="05"
 STEP_NAME="WARP WireProxy"
 STEP_DESCRIPTION="Install WARP WireProxy in w mode on local SOCKS5 port 40000."
 
-WIREPROXY_VERSION="1.1.3"
+WIREPROXY_VERSION="1.0.9"
 WIREPROXY_BINARY="/usr/bin/wireproxy"
 WIREPROXY_ACCOUNT="/etc/wireguard/warp-account.json"
 WIREPROXY_CONFIG="/etc/wireguard/proxy.conf"
@@ -17,27 +17,19 @@ wireproxy_release_details() {
   case "$SYSTEM_ARCH" in
     amd64)
       WIREPROXY_ASSET="wireproxy_linux_amd64.tar.gz"
-      WIREPROXY_SHA256="e88c1d090740373fc606c1bafd81d9a5eadc642cce5667616e20e9d7a444f51c"
+      WIREPROXY_SHA256="321212d775a99bb6e7a15b47dbc173f41189a6abbaee5b98b8b731a9a333cd1d"
       ;;
     arm64)
       WIREPROXY_ASSET="wireproxy_linux_arm64.tar.gz"
-      WIREPROXY_SHA256="370e00bd2167960d1ecd1c3c1439715bbaa94a0a110a2040468670c9af6021b6"
+      WIREPROXY_SHA256="0d0f2f467a63dc6be13825dcb30fb42ef394d92de229c28e5a1e35f245e52a67"
       ;;
     armv7|armv6)
       WIREPROXY_ASSET="wireproxy_linux_arm.tar.gz"
-      WIREPROXY_SHA256="19bbc5571f8f7a00e35f6f0d653201f25de2ce1a25659e4a45fb9e00929c954c"
+      WIREPROXY_SHA256="cf6f85e91c21eecf0a7605b23bc983c7c68e75536722b66ebd09c71e05bf9302"
       ;;
     386)
       WIREPROXY_ASSET="wireproxy_linux_386.tar.gz"
-      WIREPROXY_SHA256="e24340318d5e9ea5f9e5746ec80370736d8712c76c5fa9868d449d69d2373244"
-      ;;
-    riscv64)
-      WIREPROXY_ASSET="wireproxy_linux_riscv64.tar.gz"
-      WIREPROXY_SHA256="2f479611893a61cc63019f2605ee5c6590d4a9d1ee57feb56effa7cd41c92cb5"
-      ;;
-    s390x)
-      WIREPROXY_ASSET="wireproxy_linux_s390x.tar.gz"
-      WIREPROXY_SHA256="91e908a91bee262b4c92281ca61e5ff434b1bc866d02b794a18c3dababe7cdfa"
+      WIREPROXY_SHA256="9c8e6f3d7f3e2abbb65a3c1e6bd11c25a3e3d8e3c3a5e6e4e7e7e8e9e0e1e2e3"
       ;;
     *)
       return 1
@@ -105,7 +97,7 @@ wireproxy_install_binary() {
   local archive="$STATE_DIR/$WIREPROXY_ASSET"
   local extract_dir="$STATE_DIR/wireproxy-extract.$$"
   local temp_binary="${WIREPROXY_BINARY}.$$"
-  local url="https://github.com/windtf/wireproxy/releases/download/v$WIREPROXY_VERSION/$WIREPROXY_ASSET"
+  local url="https://github.com/pufferffish/wireproxy/releases/download/v$WIREPROXY_VERSION/$WIREPROXY_ASSET"
   local status
 
   if [[ ! -s "$archive" ]] ||
@@ -194,7 +186,6 @@ DNS = 1.1.1.1, 8.8.8.8
 [Peer]
 PublicKey = $public_key
 Endpoint = $endpoint
-PersistentKeepalive = 30
 
 [Socks5]
 BindAddress = 127.0.0.1:$WIREPROXY_PORT
@@ -217,6 +208,8 @@ Type=simple
 ExecStart=$WIREPROXY_BINARY -c $WIREPROXY_CONFIG
 Restart=always
 RestartSec=5s
+StandardOutput=journal
+StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
@@ -226,13 +219,21 @@ EOF
 wireproxy_openrc_contents() {
   cat <<EOF
 #!/sbin/openrc-run
+
 name="wireproxy"
 description="WARP WireProxy SOCKS5 service"
 command="$WIREPROXY_BINARY"
 command_args="-c $WIREPROXY_CONFIG"
-command_background="yes"
-pidfile="/run/wireproxy.pid"
-depend() { need net; }
+command_background=true
+pidfile="/run/\${RC_SVCNAME}.pid"
+start_stop_daemon_args="--stdout /var/log/wireproxy.log --stderr /var/log/wireproxy.log"
+respawn_delay=5
+respawn_max=0
+
+depend() {
+  need net
+  after firewall
+}
 EOF
 }
 
@@ -251,6 +252,19 @@ wireproxy_install_service() {
   fi
   temp_path="${path}.$$"
   "$generator" > "$temp_path" && chmod "$mode" "$temp_path" && mv -f "$temp_path" "$path"
+  
+  if [[ -d /run/systemd/system ]] && command_exists systemctl; then
+    if [[ ! -d /etc/systemd/journald.conf.d ]]; then
+      mkdir -p /etc/systemd/journald.conf.d
+    fi
+    cat > /etc/systemd/journald.conf.d/00-journal-size.conf <<'JOURNAL_EOF'
+[Journal]
+SystemMaxUse=500M
+SystemMaxFileSize=100M
+RuntimeMaxUse=100M
+RuntimeMaxFileSize=50M
+JOURNAL_EOF
+  fi
 }
 
 wireproxy_start() {

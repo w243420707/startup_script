@@ -10,7 +10,7 @@ VPS 重启后自动运行，检查和修复所有步骤，全部成功后发送 
 - ✅ **自动识别系统**：支持 Debian/Ubuntu/RHEL/CentOS/Arch/Alpine/SUSE 等主流发行版
 - ✅ **智能重试机制**：命令失败重试 3 次，步骤失败重试 2 次
 - ✅ **持久化配置**：首次运行保存全部变量，重启后自动恢复
-- ✅ **固定版本安装**：WireProxy 1.1.3 和 V2bX 0.4.0 带 SHA-256 校验
+- ✅ **固定版本安装**：WireProxy 1.0.9 和 V2bX 0.4.0 带 SHA-256 校验
 - ✅ **开机自启动**：支持 systemd 和 OpenRC，启动超时 30 分钟
 - ✅ **安全保护**：配置文件 0600 权限，API Key 通过文件描述符传递
 
@@ -222,6 +222,33 @@ rm /var/lib/startup-script/step-*.state
 ```
 
 ## 更新日志
+
+### 0.9.6 (2026-09-04)
+
+- 🔄 **切换到 pufferffish 官方原版 WireProxy**（v1.0.9 替代 windtf fork v1.1.3）
+- 🐛 **解决内存泄漏根本原因**：与 fscarmen 脚本保持一致，使用稳定版本
+- ➖ **移除定时重启和内存限制**：原版不会内存泄漏，无需额外限制
+
+### 0.9.5 (2026-09-04)
+
+- 🐛 **修复 WireProxy 内存泄漏问题**（1.4GB+ 且持续增长）
+- ⏰ WireProxy 每 6 小时自动重启一次，清理累积的内存
+- 🛡️ 限制 WireProxy 内存使用：最高 512MB，警戒线 384MB
+- 🔄 同时支持 systemd 和 OpenRC 的定时重启机制
+
+### 0.9.4 (2026-09-04)
+
+- 🐛 修复内存泄漏问题：为 V2bX 和 WireProxy 服务添加日志管理
+- 📝 V2bX 日志重定向到 `/var/log/V2bX.log`，每日轮转，保留 7 天，单文件最大 100MB
+- 📝 WireProxy 日志输出到 systemd journal，限制 journal 总大小为 500MB
+- 🛡️ 防止长时间运行后日志无限增长导致的内存和磁盘占用
+
+### 0.9.3 (2026-09-04)
+
+- 🐛 修复步骤 02（Swap 配置）缺少依赖的问题，补充 `util-linux` 和 `procps` 包
+- 🐛 修复 startup.sh 中 DDNS 步骤路径错误（03 → 04）
+- 🛡️ 增强 Swap 配置的健壮性，支持 `/etc/sysctl.d/` 目录作为备选配置路径
+- 🐧 为 Alpine Linux 补充 `linux-headers` 依赖
 
 ### 0.9.2 (2026-09-04)
 
