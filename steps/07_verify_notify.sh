@@ -68,7 +68,24 @@ send_telegram_success() {
   [[ "$attempts" =~ ^[0-9]+$ ]] || attempts=3
   (( attempts >= 1 )) || attempts=1
   (( attempts <= 10 )) || attempts=10
-  message="startup-script $VERSION completed successfully on $(hostname). Cloudflare DDNS: $CFRECORD_NAME. WARP SOCKS5: 127.0.0.1:40000. V2bX nodes: $NodeID_anytls, $NodeID_hysteria2."
+  
+  message="✅ VPS 开机脚本安装完成
+
+📋 基本信息
+━━━━━━━━━━━━━━━━
+版本：$VERSION
+主机：$(hostname)
+
+🌐 服务状态
+━━━━━━━━━━━━━━━━
+✓ 哪吒探针：已安装
+✓ 防火墙：已关闭
+✓ Cloudflare DDNS：$CFRECORD_NAME
+✓ WARP 代理：127.0.0.1:40000
+✓ V2bX 节点：$NodeID_anytls, $NodeID_hysteria2
+
+🎉 所有服务运行正常！"
+  
   for ((attempt = 1; attempt <= attempts; attempt++)); do
     response="$(curl -fsS --connect-timeout 15 --max-time 45 -X POST \
       --config /dev/fd/3 \
