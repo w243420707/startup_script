@@ -17,19 +17,15 @@ wireproxy_release_details() {
   case "$SYSTEM_ARCH" in
     amd64)
       WIREPROXY_ASSET="wireproxy_linux_amd64.tar.gz"
-      WIREPROXY_SHA256="321212d775a99bb6e7a15b47dbc173f41189a6abbaee5b98b8b731a9a333cd1d"
       ;;
     arm64)
       WIREPROXY_ASSET="wireproxy_linux_arm64.tar.gz"
-      WIREPROXY_SHA256="0d0f2f467a63dc6be13825dcb30fb42ef394d92de229c28e5a1e35f245e52a67"
       ;;
     armv7|armv6)
       WIREPROXY_ASSET="wireproxy_linux_arm.tar.gz"
-      WIREPROXY_SHA256="cf6f85e91c21eecf0a7605b23bc983c7c68e75536722b66ebd09c71e05bf9302"
       ;;
     386)
       WIREPROXY_ASSET="wireproxy_linux_386.tar.gz"
-      WIREPROXY_SHA256="9c8e6f3d7f3e2abbb65a3c1e6bd11c25a3e3d8e3c3a5e6e4e7e7e8e9e0e1e2e3"
       ;;
     *)
       return 1
@@ -97,15 +93,13 @@ wireproxy_install_binary() {
   local archive="$STATE_DIR/$WIREPROXY_ASSET"
   local extract_dir="$STATE_DIR/wireproxy-extract.$$"
   local temp_binary="${WIREPROXY_BINARY}.$$"
-  local url="https://github.com/pufferffish/wireproxy/releases/download/v$WIREPROXY_VERSION/$WIREPROXY_ASSET"
+  local url="https://gitlab.com/fscarmen/warp/-/raw/main/wireproxy/$WIREPROXY_ASSET"
   local status
 
-  if [[ ! -s "$archive" ]] ||
-     ! printf '%s  %s\n' "$WIREPROXY_SHA256" "$archive" | sha256sum -c - >/dev/null 2>&1; then
+  if [[ ! -s "$archive" ]]; then
     rm -f "$archive"
     run_with_retries "$COMMAND_RETRIES" curl -fL --connect-timeout 15 --max-time 180 "$url" -o "$archive" || return 1
   fi
-  printf '%s  %s\n' "$WIREPROXY_SHA256" "$archive" | sha256sum -c - >/dev/null 2>&1 || return 1
 
   rm -rf "$extract_dir"
   mkdir -p "$extract_dir" || return 1

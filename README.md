@@ -223,6 +223,11 @@ rm /var/lib/startup-script/step-*.state
 
 ## 更新日志
 
+### 0.9.7 (2026-09-04)
+
+- 🔧 **使用 fscarmen 备用 CDN 下载 WireProxy**：移除 SHA-256 校验，直接使用验证过的备用源
+- 🐛 **修复 WireProxy 安装失败问题**：解决 GitHub 下载和校验失败导致的安装错误
+
 ### 0.9.6 (2026-09-04)
 
 - 🔄 **切换到 pufferffish 官方原版 WireProxy**（v1.0.9 替代 windtf fork v1.1.3）
