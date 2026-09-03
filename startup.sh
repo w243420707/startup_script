@@ -62,6 +62,16 @@ STARTUP_NZ_UUID="${NZ_UUID-}"
 STARTUP_NZ_INSTALL_URL="${NZ_INSTALL_URL-}"
 STARTUP_NZ_INSTALLER_PATH="${NZ_INSTALLER_PATH-}"
 STARTUP_NZ_CONFIG_PATH="${NZ_CONFIG_PATH-}"
+STARTUP_CFKEY="${CFKEY-}"
+STARTUP_CFUSER="${CFUSER-}"
+STARTUP_CFRECORD_NAME="${CFRECORD_NAME-}"
+STARTUP_TG_BOT_TOKEN="${TG_BOT_TOKEN-}"
+STARTUP_TG_USER_ID="${TG_USER_ID:-${TG_CHAT_ID:-${TG_USERID-}}}"
+STARTUP_ApiHost="${ApiHost-}"
+STARTUP_ApiKey="${ApiKey-}"
+STARTUP_NodeID_anytls="${NodeID_anytls-}"
+STARTUP_NodeID_hysteria2="${NodeID_hysteria2-}"
+STARTUP_ENV_PATH=""
 
 ACTION="install"
 DRY_RUN=0
@@ -72,6 +82,7 @@ Usage: $0 [command] [options]
 
 Commands:
   install              Run all installation steps automatically (default)
+  ddns                 Update the configured Cloudflare A record
   check                Detect the system and list available steps
   version              Print the script version
   help                 Show this help message
@@ -85,7 +96,7 @@ EOF
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      install|check|version|help)
+      install|check|version|help|ddns|ddns-loop)
         ACTION="$1"
         ;;
       --yes|-y)
@@ -106,41 +117,64 @@ parse_args() {
   done
 }
 
-persist_nezha_environment() {
-  local config_path temp_path
+persist_startup_environment() {
+  local config_path legacy_path input_path temp_path config_valid=0 has_input=0
   local saved_server="" saved_tls="" saved_client_secret="" saved_uuid=""
   local saved_install_url="" saved_installer_path=""
+  local saved_cfkey="" saved_cfuser="" saved_cfrecord_name=""
+  local saved_tg_bot_token="" saved_tg_user_id=""
+  local saved_api_host="" saved_api_key=""
+  local saved_node_id_anytls="" saved_node_id_hysteria2=""
 
-  if [[ -z "$STARTUP_NZ_SERVER" &&
-        -z "$STARTUP_NZ_TLS" &&
-        -z "$STARTUP_NZ_CLIENT_SECRET" &&
-        -z "$STARTUP_NZ_UUID" &&
-        -z "$STARTUP_NZ_INSTALL_URL" &&
-        -z "$STARTUP_NZ_INSTALLER_PATH" &&
-        -z "$STARTUP_NZ_CONFIG_PATH" ]]; then
-    return 0
+  config_path="$STATE_DIR/startup.env"
+  legacy_path="${STARTUP_NZ_CONFIG_PATH:-$STATE_DIR/nezha-agent.env}"
+  input_path="$config_path"
+  if [[ ! -r "$input_path" && -r "$legacy_path" ]]; then
+    input_path="$legacy_path"
   fi
-
-  config_path="${STARTUP_NZ_CONFIG_PATH:-$STATE_DIR/nezha-agent.env}"
+  STARTUP_ENV_PATH="$config_path"
   temp_path="${config_path}.$$"
 
-  if [[ -r "$config_path" ]]; then
-    if ! bash -n "$config_path" >/dev/null 2>&1 || ! source "$config_path"; then
-      log_warn "The saved Nezha configuration is invalid. Replacing it."
+  if [[ -r "$input_path" ]]; then
+    if ! bash -n "$input_path" >/dev/null 2>&1 || ! source "$input_path"; then
+      log_warn "The saved startup configuration is invalid. Replacing it."
       saved_server=""
       saved_tls=""
       saved_client_secret=""
       saved_uuid=""
       saved_install_url=""
       saved_installer_path=""
+      saved_cfkey=""
+      saved_cfuser=""
+      saved_cfrecord_name=""
+      saved_tg_bot_token=""
+      saved_tg_user_id=""
+      saved_api_host=""
+      saved_api_key=""
+      saved_node_id_anytls=""
+      saved_node_id_hysteria2=""
     else
+      config_valid=1
       saved_server="${NZ_SERVER:-}"
       saved_tls="${NZ_TLS:-}"
       saved_client_secret="${NZ_CLIENT_SECRET:-}"
       saved_uuid="${NZ_UUID:-}"
       saved_install_url="${NZ_INSTALL_URL:-}"
       saved_installer_path="${NZ_INSTALLER_PATH:-}"
+      saved_cfkey="${CFKEY:-}"
+      saved_cfuser="${CFUSER:-}"
+      saved_cfrecord_name="${CFRECORD_NAME:-}"
+      saved_tg_bot_token="${TG_BOT_TOKEN:-}"
+      saved_tg_user_id="${TG_USER_ID:-${TG_CHAT_ID:-${TG_USERID:-}}}"
+      saved_api_host="${ApiHost:-}"
+      saved_api_key="${ApiKey:-}"
+      saved_node_id_anytls="${NodeID_anytls:-}"
+      saved_node_id_hysteria2="${NodeID_hysteria2:-}"
     fi
+  fi
+
+  if [[ -n "$STARTUP_NZ_SERVER$STARTUP_NZ_TLS$STARTUP_NZ_CLIENT_SECRET$STARTUP_NZ_UUID$STARTUP_NZ_INSTALL_URL$STARTUP_NZ_INSTALLER_PATH$STARTUP_CFKEY$STARTUP_CFUSER$STARTUP_CFRECORD_NAME$STARTUP_TG_BOT_TOKEN$STARTUP_TG_USER_ID$STARTUP_ApiHost$STARTUP_ApiKey$STARTUP_NodeID_anytls$STARTUP_NodeID_hysteria2" ]]; then
+    has_input=1
   fi
 
   saved_server="${STARTUP_NZ_SERVER:-$saved_server}"
@@ -149,28 +183,95 @@ persist_nezha_environment() {
   saved_uuid="${STARTUP_NZ_UUID:-$saved_uuid}"
   saved_install_url="${STARTUP_NZ_INSTALL_URL:-${saved_install_url:-https://raw.githubusercontent.com/nezhahq/scripts/main/agent/install.sh}}"
   saved_installer_path="${STARTUP_NZ_INSTALLER_PATH:-${saved_installer_path:-$STATE_DIR/agent.sh}}"
+  saved_cfkey="${STARTUP_CFKEY:-$saved_cfkey}"
+  saved_cfuser="${STARTUP_CFUSER:-$saved_cfuser}"
+  saved_cfrecord_name="${STARTUP_CFRECORD_NAME:-$saved_cfrecord_name}"
+  saved_tg_bot_token="${STARTUP_TG_BOT_TOKEN:-$saved_tg_bot_token}"
+  saved_tg_user_id="${STARTUP_TG_USER_ID:-$saved_tg_user_id}"
+  saved_api_host="${STARTUP_ApiHost:-$saved_api_host}"
+  saved_api_key="${STARTUP_ApiKey:-$saved_api_key}"
+  saved_node_id_anytls="${STARTUP_NodeID_anytls:-$saved_node_id_anytls}"
+  saved_node_id_hysteria2="${STARTUP_NodeID_hysteria2:-$saved_node_id_hysteria2}"
 
   if [[ -z "$saved_server" || -z "$saved_client_secret" || -z "$saved_uuid" ]]; then
     log_error "NZ_SERVER, NZ_CLIENT_SECRET and NZ_UUID are required."
     return 1
   fi
 
+  if [[ -z "$saved_cfkey" || -z "$saved_cfuser" || -z "$saved_cfrecord_name" ]]; then
+    log_error "CFKEY, CFUSER and CFRECORD_NAME are required."
+    return 1
+  fi
+
+  if [[ -z "$saved_api_host" || -z "$saved_api_key" ||
+        -z "$saved_node_id_anytls" || -z "$saved_node_id_hysteria2" ]]; then
+    log_error "ApiHost, ApiKey, NodeID_anytls and NodeID_hysteria2 are required."
+    return 1
+  fi
+
+  if [[ ! "$saved_node_id_anytls" =~ ^[1-9][0-9]*$ ||
+        ! "$saved_node_id_hysteria2" =~ ^[1-9][0-9]*$ ]]; then
+    log_error "NodeID_anytls and NodeID_hysteria2 must be positive integers without leading zeroes."
+    return 1
+  fi
+
+  if [[ -z "$saved_tg_bot_token" || -z "$saved_tg_user_id" ]]; then
+    log_error "TG_BOT_TOKEN and TG_USER_ID are required."
+    return 1
+  fi
+
+  NZ_SERVER="$saved_server"
+  NZ_TLS="$saved_tls"
+  NZ_CLIENT_SECRET="$saved_client_secret"
+  NZ_UUID="$saved_uuid"
+  NZ_INSTALL_URL="$saved_install_url"
+  NZ_INSTALLER_PATH="$saved_installer_path"
+  STARTUP_NZ_SERVER="$saved_server"
+  STARTUP_NZ_TLS="$saved_tls"
+  STARTUP_NZ_CLIENT_SECRET="$saved_client_secret"
+  STARTUP_NZ_UUID="$saved_uuid"
+  STARTUP_NZ_INSTALL_URL="$saved_install_url"
+  STARTUP_NZ_INSTALLER_PATH="$saved_installer_path"
+  CFKEY="$saved_cfkey"
+  CFUSER="$saved_cfuser"
+  CFRECORD_NAME="$saved_cfrecord_name"
+  TG_BOT_TOKEN="$saved_tg_bot_token"
+  TG_USER_ID="$saved_tg_user_id"
+  ApiHost="$saved_api_host"
+  ApiKey="$saved_api_key"
+  NodeID_anytls="$saved_node_id_anytls"
+  NodeID_hysteria2="$saved_node_id_hysteria2"
+
+  if [[ "${DRY_RUN:-0}" == "1" ]]; then
+    return 0
+  fi
+
+  if [[ "$has_input" == "0" && "$config_valid" == "1" && "$input_path" == "$config_path" ]]; then
+    chmod 0600 "$config_path" || {
+      log_error "Could not protect the saved startup configuration."
+      return 1
+    }
+    return 0
+  fi
+
   if ! mkdir -p "$(dirname -- "$config_path")"; then
-    log_error "Could not create the Nezha configuration directory."
+    log_error "Could not create the startup configuration directory."
     return 1
   fi
 
   umask 077
-  if ! printf 'NZ_SERVER=%q\nNZ_TLS=%q\nNZ_CLIENT_SECRET=%q\nNZ_UUID=%q\nNZ_INSTALL_URL=%q\nNZ_INSTALLER_PATH=%q\n' \
-    "$saved_server" "$saved_tls" "$saved_client_secret" "$saved_uuid" "$saved_install_url" "$saved_installer_path" > "$temp_path"; then
+  if ! printf 'NZ_SERVER=%q\nNZ_TLS=%q\nNZ_CLIENT_SECRET=%q\nNZ_UUID=%q\nNZ_INSTALL_URL=%q\nNZ_INSTALLER_PATH=%q\nCFKEY=%q\nCFUSER=%q\nCFRECORD_NAME=%q\nTG_BOT_TOKEN=%q\nTG_USER_ID=%q\nApiHost=%q\nApiKey=%q\nNodeID_anytls=%q\nNodeID_hysteria2=%q\n' \
+    "$saved_server" "$saved_tls" "$saved_client_secret" "$saved_uuid" "$saved_install_url" "$saved_installer_path" \
+    "$saved_cfkey" "$saved_cfuser" "$saved_cfrecord_name" "$saved_tg_bot_token" "$saved_tg_user_id" \
+    "$saved_api_host" "$saved_api_key" "$saved_node_id_anytls" "$saved_node_id_hysteria2" > "$temp_path"; then
     rm -f "$temp_path"
-    log_error "Could not write the Nezha configuration."
+    log_error "Could not write the startup configuration."
     return 1
   fi
 
   if ! chmod 0600 "$temp_path" || ! mv -f "$temp_path" "$config_path"; then
     rm -f "$temp_path"
-    log_error "Could not save the Nezha configuration."
+    log_error "Could not save the startup configuration."
     return 1
   fi
 }
@@ -303,21 +404,48 @@ main() {
         fi
         trap 'release_lock' EXIT
         trap 'on_unexpected_error $LINENO' ERR
-        if ! persist_nezha_environment; then
-          return 1
-        fi
+      fi
+      if ! persist_startup_environment; then
+        return 1
       fi
       detect_system
       print_system_info
       require_supported_system
       if ! ensure_boot_service; then
-        log_warn "Boot service registration failed. Continuing with the current repair run."
+        log_error "Boot service registration failed."
+        return 1
       fi
       list_steps
       run_steps
       log_success "All steps are healthy."
       ;;
+    ddns)
+      prepare_noninteractive
+      require_root
+      init_runtime
+      local lock_status=0
+      acquire_lock || lock_status="$?"
+      if [[ "$lock_status" == "2" ]]; then
+        return 0
+      elif [[ "$lock_status" != "0" ]]; then
+        return "$lock_status"
+      fi
+      trap 'release_lock' EXIT
+      persist_startup_environment
+      source "$SCRIPT_DIR/steps/03_cloudflare_ddns.sh"
+      cf_ddns_sync
+      ;;
+    ddns-loop)
+      prepare_noninteractive
+      require_root
+      while true; do
+        "$SCRIPT_DIR/startup.sh" ddns || true
+        sleep 300
+      done
+      ;;
   esac
 }
 
-main "$@"
+if [[ "${BASH_SOURCE[0]}" == "$0" ]]; then
+  main "$@"
+fi

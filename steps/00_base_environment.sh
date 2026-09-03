@@ -4,8 +4,15 @@ STEP_ID="00"
 STEP_NAME="Base environment"
 STEP_DESCRIPTION="Keep the basic tools required by later setup steps installed."
 
-BASE_PACKAGES=(ca-certificates coreutils curl wget tar gzip unzip grep)
-BASE_COMMANDS=(cksum curl wget tar gzip unzip grep)
+BASE_PACKAGES=(ca-certificates coreutils curl wget tar gzip unzip grep gawk jq diffutils openssl socat iptables nftables)
+BASE_COMMANDS=(cksum sha256sum base64 tail curl wget tar gzip unzip grep jq cmp openssl socat iptables ip6tables nft)
+
+if [[ "$SYSTEM_OS_FAMILY" == "rhel" ]]; then
+  BASE_PACKAGES+=(iproute)
+else
+  BASE_PACKAGES+=(iproute2)
+fi
+BASE_COMMANDS+=(ss awk)
 
 package_installed() {
   local package="$1"
@@ -62,7 +69,10 @@ repair_rhel() {
   if ! run_with_retries "$COMMAND_RETRIES" "$SYSTEM_PACKAGE_MANAGER" clean all; then
     log_warn "Could not clean the package cache. Continuing with package installation."
   fi
-  run_with_retries "$COMMAND_RETRIES" "$SYSTEM_PACKAGE_MANAGER" install -y "${BASE_PACKAGES[@]}"
+  if ! run_with_retries "$COMMAND_RETRIES" "$SYSTEM_PACKAGE_MANAGER" install -y "${BASE_PACKAGES[@]}"; then
+    run_with_retries "$COMMAND_RETRIES" "$SYSTEM_PACKAGE_MANAGER" install -y epel-release || true
+    run_with_retries "$COMMAND_RETRIES" "$SYSTEM_PACKAGE_MANAGER" install -y "${BASE_PACKAGES[@]}"
+  fi
 }
 
 repair_arch() {

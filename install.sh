@@ -4,41 +4,98 @@ set -eu
 
 REPOSITORY_ARCHIVE="https://github.com/w243420707/startup_script/archive/refs/heads/main.tar.gz"
 INSTALL_DIR="/opt/startup-script"
-TEMP_DIR="${TMPDIR:-/tmp}/startup-script-install.$$"
-ARCHIVE_PATH="$TEMP_DIR/source.tar.gz"
-STAGE_DIR="$TEMP_DIR/stage"
+TEMP_DIR=""
+ARCHIVE_PATH=""
+STAGE_DIR=""
+BACKUP_DIR=""
 
 cleanup() {
-  rm -rf "$TEMP_DIR"
+  [ -z "$TEMP_DIR" ] || rm -rf "$TEMP_DIR"
 }
 
 trap cleanup EXIT INT TERM
+
+install_bootstrap_dependencies() {
+  attempt=1
+  export DEBIAN_FRONTEND=noninteractive APT_LISTCHANGES_FRONTEND=none NEEDRESTART_MODE=a
+
+  while [ "$attempt" -le 3 ]; do
+    if command -v apk >/dev/null 2>&1; then
+      apk add --no-cache ca-certificates curl tar gzip coreutils
+    elif command -v apt-get >/dev/null 2>&1; then
+      dpkg --force-confold --configure -a >/dev/null 2>&1 || true
+      apt-get -o DPkg::Lock::Timeout=300 update &&
+        apt-get -o DPkg::Lock::Timeout=300 -o Dpkg::Options::=--force-confold install -y ca-certificates curl tar gzip coreutils
+    elif command -v dnf >/dev/null 2>&1; then
+      dnf install -y ca-certificates curl tar gzip coreutils
+    elif command -v yum >/dev/null 2>&1; then
+      yum install -y ca-certificates curl tar gzip coreutils
+    elif command -v pacman >/dev/null 2>&1; then
+      pacman -Sy --noconfirm ca-certificates curl tar gzip coreutils
+    elif command -v zypper >/dev/null 2>&1; then
+      zypper --non-interactive install -y ca-certificates curl tar gzip coreutils
+    else
+      return 1
+    fi
+
+    if command -v curl >/dev/null 2>&1 && command -v tar >/dev/null 2>&1 && command -v mktemp >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep $((attempt * 5))
+    attempt=$((attempt + 1))
+  done
+
+  return 1
+}
 
 if [ "$(id -u)" -ne 0 ]; then
   printf '%s\n' '[ERROR] Please run this command as root.' >&2
   exit 1
 fi
 
-if ! command -v curl >/dev/null 2>&1; then
-  printf '%s\n' '[ERROR] curl is required to download the startup script.' >&2
-  exit 1
+if ! command -v curl >/dev/null 2>&1 ||
+   ! command -v tar >/dev/null 2>&1 ||
+   ! command -v mktemp >/dev/null 2>&1; then
+  if ! install_bootstrap_dependencies; then
+    printf '%s\n' '[ERROR] Could not install the bootstrap dependencies.' >&2
+    exit 1
+  fi
 fi
 
-if ! command -v tar >/dev/null 2>&1; then
-  printf '%s\n' '[ERROR] tar is required to install the startup script.' >&2
-  exit 1
-fi
+TEMP_DIR="$(mktemp -d "${TMPDIR:-/tmp}/startup-script-install.XXXXXX")"
+ARCHIVE_PATH="$TEMP_DIR/source.tar.gz"
+STAGE_DIR="$TEMP_DIR/stage"
 
 NZ_SERVER="${1:-${NZ_SERVER:-}}"
 NZ_CLIENT_SECRET="${2:-${NZ_CLIENT_SECRET:-}}"
 NZ_UUID="${3:-${NZ_UUID:-}}"
 NZ_TLS="${NZ_TLS:-true}"
+CFKEY="${4:-${CFKEY:-}}"
+CFUSER="${5:-${CFUSER:-}}"
+CFRECORD_NAME="${6:-${CFRECORD_NAME:-}}"
+ApiHost="${7:-${ApiHost:-}}"
+ApiKey="${8:-${ApiKey:-}}"
+NodeID_anytls="${9:-${NodeID_anytls:-}}"
+NodeID_hysteria2="${10:-${NodeID_hysteria2:-}}"
+TG_BOT_TOKEN="${11:-${TG_BOT_TOKEN:-}}"
+TG_USER_ID="${12:-${TG_USER_ID:-${TG_CHAT_ID:-${TG_USERID:-}}}}"
 
-if [ -z "$NZ_SERVER" ] || [ -z "$NZ_CLIENT_SECRET" ] || [ -z "$NZ_UUID" ]; then
-  printf '%s\n' '[ERROR] NZ_SERVER, NZ_CLIENT_SECRET and NZ_UUID are required.' >&2
-  printf '%s\n' "Usage: curl -fsSL https://raw.githubusercontent.com/w243420707/startup_script/main/install.sh | sh -s -- 'SERVER:PORT' 'CLIENT_SECRET' 'UUID'" >&2
+if [ -z "$NZ_SERVER" ] || [ -z "$NZ_CLIENT_SECRET" ] || [ -z "$NZ_UUID" ] ||
+   [ -z "$CFKEY" ] || [ -z "$CFUSER" ] || [ -z "$CFRECORD_NAME" ] ||
+   [ -z "$ApiHost" ] || [ -z "$ApiKey" ] ||
+   [ -z "$NodeID_anytls" ] || [ -z "$NodeID_hysteria2" ] ||
+   [ -z "$TG_BOT_TOKEN" ] || [ -z "$TG_USER_ID" ]; then
+  printf '%s\n' '[ERROR] NZ_SERVER, NZ_CLIENT_SECRET, NZ_UUID, CFKEY, CFUSER, CFRECORD_NAME, ApiHost, ApiKey, NodeID_anytls, NodeID_hysteria2, TG_BOT_TOKEN and TG_USER_ID are required.' >&2
+  printf '%s\n' "Usage: curl -fsSL https://raw.githubusercontent.com/w243420707/startup_script/main/install.sh | sh -s -- 'SERVER:PORT' 'CLIENT_SECRET' 'UUID' 'CFKEY' 'CFUSER' 'CFRECORD_NAME' 'ApiHost' 'ApiKey' 'NodeID_anytls' 'NodeID_hysteria2' 'TG_BOT_TOKEN' 'TG_USER_ID'" >&2
   exit 1
 fi
+
+case "$NodeID_anytls:$NodeID_hysteria2" in
+  *[!0-9:]*|0:*|*:0|0[0-9]*:*|*:0[0-9]*)
+    printf '%s\n' '[ERROR] Both V2bX Node IDs must be positive integers without leading zeroes.' >&2
+    exit 1
+    ;;
+esac
 
 mkdir -p "$STAGE_DIR"
 
@@ -65,9 +122,29 @@ if [ -e "$INSTALL_DIR" ] && [ ! -d "$INSTALL_DIR" ]; then
   exit 1
 fi
 
-rm -rf "$INSTALL_DIR"
-mv "$STAGE_DIR" "$INSTALL_DIR"
-chmod +x "$INSTALL_DIR/startup.sh"
+chmod +x "$STAGE_DIR/startup.sh"
+BACKUP_DIR="${INSTALL_DIR}.backup.$$"
+rm -rf "$BACKUP_DIR"
+if [ -d "$INSTALL_DIR" ]; then
+  mv "$INSTALL_DIR" "$BACKUP_DIR"
+fi
+if ! mv "$STAGE_DIR" "$INSTALL_DIR"; then
+  [ ! -d "$BACKUP_DIR" ] || mv "$BACKUP_DIR" "$INSTALL_DIR"
+  printf '%s\n' '[ERROR] Could not activate the downloaded startup script.' >&2
+  exit 1
+fi
 
-export NZ_SERVER NZ_TLS NZ_CLIENT_SECRET NZ_UUID
-"$INSTALL_DIR/startup.sh" install --yes
+export NZ_SERVER NZ_TLS NZ_CLIENT_SECRET NZ_UUID \
+  CFKEY CFUSER CFRECORD_NAME TG_BOT_TOKEN TG_USER_ID \
+  ApiHost ApiKey NodeID_anytls NodeID_hysteria2
+if ! "$INSTALL_DIR/startup.sh" install --yes; then
+  if [ -d "$BACKUP_DIR" ]; then
+    rm -rf "$INSTALL_DIR"
+    mv "$BACKUP_DIR" "$INSTALL_DIR"
+    printf '%s\n' '[ERROR] Startup setup failed; the previous installation was restored.' >&2
+  else
+    printf '%s\n' '[ERROR] Startup setup is incomplete; installed files were kept for boot-time self-healing.' >&2
+  fi
+  exit 1
+fi
+rm -rf "$BACKUP_DIR"

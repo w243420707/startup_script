@@ -25,7 +25,7 @@ ExecStart=$shell_path $escaped_script_path install --yes
 Environment=DEBIAN_FRONTEND=noninteractive
 Environment=APT_LISTCHANGES_FRONTEND=none
 Environment=NEEDRESTART_MODE=a
-TimeoutStartSec=15min
+TimeoutStartSec=30min
 Restart=on-failure
 RestartSec=30s
 
@@ -117,5 +117,5 @@ ensure_boot_service() {
   fi
 
   log_warn "Neither systemd nor OpenRC is available. Boot service registration skipped."
-  return 0
+  return 1
 }

@@ -183,6 +183,8 @@ run_nz_installer() {
   fi
 
   (
+    unset CFKEY CFUSER CFRECORD_NAME TG_BOT_TOKEN TG_USER_ID TG_CHAT_ID TG_USERID
+    unset ApiHost ApiKey NodeID_anytls NodeID_hysteria2
     export NZ_SERVER NZ_TLS NZ_CLIENT_SECRET NZ_UUID
     run_with_retries "$COMMAND_RETRIES" "${installer_command[@]}"
   )

@@ -66,10 +66,10 @@ init_runtime() {
 
   log_dir="$(dirname -- "$LOG_FILE")"
 
-  if ! mkdir -p "$STATE_DIR" "$log_dir" || ! touch "$LOG_FILE"; then
+  if ! mkdir -p "$STATE_DIR" "$log_dir" || ! touch "$LOG_FILE" || ! chmod 0600 "$LOG_FILE"; then
     STATE_DIR="/tmp/startup-script"
     LOG_FILE="/tmp/startup-script.log"
-    if ! mkdir -p "$STATE_DIR" /tmp || ! touch "$LOG_FILE"; then
+    if ! mkdir -p "$STATE_DIR" /tmp || ! touch "$LOG_FILE" || ! chmod 0600 "$LOG_FILE"; then
       LOG_FILE="/dev/null"
     else
       log_warn "Could not use the configured runtime paths. Falling back to /tmp."
@@ -79,6 +79,7 @@ init_runtime() {
   if [[ -f "$LOG_FILE" ]] && [[ "$(wc -c < "$LOG_FILE")" -gt 5242880 ]]; then
     mv -f "$LOG_FILE" "$LOG_FILE.1" || true
     touch "$LOG_FILE"
+    chmod 0600 "$LOG_FILE" || true
   fi
 
   if ! exec >> "$LOG_FILE" 2>&1; then
