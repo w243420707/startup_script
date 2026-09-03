@@ -2,7 +2,7 @@
 
 set -eu
 
-REPOSITORY_ARCHIVE="https://github.com/w243420707/startup_script/archive/refs/heads/main.tar.gz"
+REPOSITORY_ARCHIVE="https://github.com/w243420707/startup_script/archive/refs/heads/feat/one-click-installer.tar.gz"
 INSTALL_DIR="/opt/startup-script"
 TEMP_DIR=""
 ARCHIVE_PATH=""
