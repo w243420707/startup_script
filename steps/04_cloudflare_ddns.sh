@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-STEP_ID="03"
+STEP_ID="04"
 STEP_NAME="Cloudflare DDNS"
 STEP_DESCRIPTION="Keep the configured Cloudflare A record pointed at this VPS."
 

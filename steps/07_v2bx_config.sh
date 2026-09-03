@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-STEP_ID="06"
+STEP_ID="07"
 STEP_NAME="V2bX configuration"
 STEP_DESCRIPTION="Generate the V2bX node configuration and start its service."
 

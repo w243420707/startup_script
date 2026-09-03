@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-STEP_ID="05"
+STEP_ID="06"
 STEP_NAME="V2bX installation"
 STEP_DESCRIPTION="Install V2bX and its service without generating user configuration."
 

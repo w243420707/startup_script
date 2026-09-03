@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-STEP_ID="07"
+STEP_ID="08"
 STEP_NAME="Final verification"
 STEP_DESCRIPTION="Recheck every previous step, self-heal failures, and send one Telegram success notice."
 
@@ -8,11 +8,12 @@ TG_NOTIFICATION_STATE="$STATE_DIR/telegram-success.state"
 PREVIOUS_STEP_FILES=(
   "$SCRIPT_DIR/steps/00_base_environment.sh"
   "$SCRIPT_DIR/steps/01_nezha_agent.sh"
-  "$SCRIPT_DIR/steps/02_disable_firewall.sh"
-  "$SCRIPT_DIR/steps/03_cloudflare_ddns.sh"
-  "$SCRIPT_DIR/steps/04_warp_wireproxy.sh"
-  "$SCRIPT_DIR/steps/05_v2bx_install.sh"
-  "$SCRIPT_DIR/steps/06_v2bx_config.sh"
+  "$SCRIPT_DIR/steps/02_configure_swap.sh"
+  "$SCRIPT_DIR/steps/03_disable_firewall.sh"
+  "$SCRIPT_DIR/steps/04_cloudflare_ddns.sh"
+  "$SCRIPT_DIR/steps/05_warp_wireproxy.sh"
+  "$SCRIPT_DIR/steps/06_v2bx_install.sh"
+  "$SCRIPT_DIR/steps/07_v2bx_config.sh"
 )
 
 verify_previous_steps() {
@@ -79,6 +80,7 @@ send_telegram_success() {
 🌐 服务状态
 ━━━━━━━━━━━━━━━━
 ✓ 哪吒探针：已安装
+✓ Swap 交换：4GB (swappiness=10)
 ✓ 防火墙：已关闭
 ✓ Cloudflare DDNS：$CFRECORD_NAME
 ✓ WARP 代理：127.0.0.1:40000

@@ -59,12 +59,13 @@ curl -fsSL https://raw.githubusercontent.com/w243420707/startup_script/feat/one-
 1. **下载项目**：下载完整项目到 `/opt/startup-script`，保存所有变量到 `/var/lib/startup-script/startup.env`
 2. **基础环境**：自动识别系统、架构和包管理器，安装 jq、socat、openssl 等 15+ 基础依赖
 3. **哪吒探针**：安装并启动哪吒 Agent，监控 VPS 状态
-4. **关闭防火墙**：停止并删除 UFW、firewalld 等防火墙管理器，清空规则，开放所有端口
-5. **Cloudflare DDNS**：自动识别 Zone，创建或更新 A 记录，每 5 分钟同步公网 IPv4
-6. **WARP WireProxy**：安装 WireProxy 1.1.3，自动注册 WARP 账户，监听 `127.0.0.1:40000`
-7. **V2bX 安装**：安装 V2bX 0.4.0 及数据文件，但不启动服务
-8. **V2bX 配置**：根据 `example/` 目录模板生成配置，启动双节点服务
-9. **验证通知**：重新验证全部步骤，自动修复异常，成功后发送 Telegram 通知
+4. **Swap 交换空间**：创建 4GB swap 文件，设置 swappiness=10，优化内存管理
+5. **关闭防火墙**：停止并删除 UFW、firewalld 等防火墙管理器，清空规则，开放所有端口
+6. **Cloudflare DDNS**：自动识别 Zone，创建或更新 A 记录，每 5 分钟同步公网 IPv4
+7. **WARP WireProxy**：安装 WireProxy 1.1.3，自动注册 WARP 账户，监听 `127.0.0.1:40000`
+8. **V2bX 安装**：安装 V2bX 0.4.0 及数据文件，但不启动服务
+9. **V2bX 配置**：根据 `example/` 目录模板生成配置，启动双节点服务
+10. **验证通知**：重新验证全部步骤，自动修复异常，成功后发送 Telegram 通知
 
 脚本会注册 systemd 或 OpenRC 开机服务。命令失败会自动重试，服务或配置异常会在本次运行及以后每次开机时继续修复。
 
@@ -221,6 +222,12 @@ rm /var/lib/startup-script/step-*.state
 ```
 
 ## 更新日志
+
+### 0.9.2 (2026-09-04)
+
+- 💾 新增步骤 02：配置 Swap 交换空间（4GB，swappiness=10）
+- 🎨 优化 Telegram 通知排版，使用中文和表情符号
+- 📋 所有步骤重新编号（02-08 变为 03-09，新增 02 为 Swap）
 
 ### 0.9.1 (2026-09-04)
 

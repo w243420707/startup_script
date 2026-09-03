@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-STEP_ID="02"
+STEP_ID="03"
 STEP_NAME="Disable firewall"
 STEP_DESCRIPTION="Stop and remove host firewall services, then allow all ports."
 

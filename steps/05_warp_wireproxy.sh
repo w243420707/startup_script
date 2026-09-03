@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-STEP_ID="04"
+STEP_ID="05"
 STEP_NAME="WARP WireProxy"
 STEP_DESCRIPTION="Install WARP WireProxy in w mode on local SOCKS5 port 40000."
 
