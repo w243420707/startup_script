@@ -225,8 +225,8 @@ rm /var/lib/startup-script/step-*.state
 
 ### 0.9.7 (2026-09-04)
 
-- 🔧 **使用 fscarmen 备用 CDN 下载 WireProxy**：移除 SHA-256 校验，直接使用验证过的备用源
-- 🐛 **修复 WireProxy 安装失败问题**：解决 GitHub 下载和校验失败导致的安装错误
+- 🔧 **移除 WireProxy SHA-256 校验**：简化安装流程，避免校验失败
+- 🐛 **修复 WireProxy 安装失败问题**：使用 GitHub 官方源但跳过校验
 
 ### 0.9.6 (2026-09-04)
 

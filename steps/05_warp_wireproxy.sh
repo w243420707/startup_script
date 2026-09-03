@@ -93,7 +93,7 @@ wireproxy_install_binary() {
   local archive="$STATE_DIR/$WIREPROXY_ASSET"
   local extract_dir="$STATE_DIR/wireproxy-extract.$$"
   local temp_binary="${WIREPROXY_BINARY}.$$"
-  local url="https://gitlab.com/fscarmen/warp/-/raw/main/wireproxy/$WIREPROXY_ASSET"
+  local url="https://github.com/pufferffish/wireproxy/releases/download/v$WIREPROXY_VERSION/$WIREPROXY_ASSET"
   local status
 
   if [[ ! -s "$archive" ]]; then
