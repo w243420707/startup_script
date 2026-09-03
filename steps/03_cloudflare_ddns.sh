@@ -163,6 +163,9 @@ cf_ddns_sync() {
 }
 
 cf_systemd_service_contents() {
+  local bash_path script_path
+  bash_path="$(command -v bash)"
+  script_path="$SCRIPT_DIR/startup.sh"
   cat <<EOF
 [Unit]
 Description=Cloudflare DDNS update for startup-script
@@ -171,7 +174,7 @@ After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=$(command -v bash) $SCRIPT_DIR/startup.sh ddns
+ExecStart=$bash_path $script_path ddns
 EOF
 }
 
@@ -192,19 +195,19 @@ EOF
 }
 
 cf_openrc_service_contents() {
+  local bash_path script_path
+  bash_path="$(command -v bash)"
+  script_path="$SCRIPT_DIR/startup.sh"
   cat <<EOF
 #!/sbin/openrc-run
 
 name="startup-cloudflare-ddns"
 description="Cloudflare DDNS update loop for startup-script"
-command="$(command -v bash)"
-command_args="$SCRIPT_DIR/startup.sh ddns-loop"
+command="$bash_path"
+command_args="$script_path ddns-loop"
 command_background="yes"
-pidfile="/run/startup-cloudflare-ddns.pid"
-
-depend() {
-  need net
-}
+pidfile="/run/startup-ddns.pid"
+depend() { need net; }
 EOF
 }
 
@@ -227,10 +230,20 @@ cf_install_generated_file() {
   chmod "$mode" "$temp_path" && mv -f "$temp_path" "$path"
 }
 
+cf_systemd_service_matches() {
+  local bash_path script_path
+  bash_path="$(command -v bash)"
+  script_path="$SCRIPT_DIR/startup.sh"
+  [[ -r "$CF_SYSTEMD_SERVICE" ]] &&
+    grep -Fqx "Description=Cloudflare DDNS update for startup-script" "$CF_SYSTEMD_SERVICE" &&
+    grep -Fqx "ExecStart=$bash_path $script_path ddns" "$CF_SYSTEMD_SERVICE" &&
+    [[ -r "$CF_SYSTEMD_TIMER" ]] &&
+    grep -Fqx 'OnUnitActiveSec=5min' "$CF_SYSTEMD_TIMER"
+}
+
 cf_scheduler_healthy() {
   if [[ -d /run/systemd/system ]] && command_exists systemctl; then
-    [[ -f "$CF_SYSTEMD_SERVICE" && -f "$CF_SYSTEMD_TIMER" ]] &&
-      grep -Fqx "ExecStart=$(command -v bash) $SCRIPT_DIR/startup.sh ddns" "$CF_SYSTEMD_SERVICE" &&
+    cf_systemd_service_matches &&
       systemctl is-enabled --quiet startup-cloudflare-ddns.timer &&
       systemctl is-active --quiet startup-cloudflare-ddns.timer
     return $?

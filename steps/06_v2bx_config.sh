@@ -132,14 +132,27 @@ v2bx_write_config() {
     return 1
   fi
 
-  [[ ! -f "$V2BX_CONFIG_PATH" ]] || cp -p "$V2BX_CONFIG_PATH" "$config_backup" || return 1
-  [[ ! -f "$V2BX_SING_PATH" ]] || cp -p "$V2BX_SING_PATH" "$sing_backup" || return 1
-  if ! mv -f "$sing_temp" "$V2BX_SING_PATH" || ! mv -f "$config_temp" "$V2BX_CONFIG_PATH"; then
-    [[ ! -f "$config_backup" ]] || mv -f "$config_backup" "$V2BX_CONFIG_PATH"
-    [[ ! -f "$sing_backup" ]] || mv -f "$sing_backup" "$V2BX_SING_PATH"
+  [[ ! -f "$V2BX_CONFIG_PATH" ]] || cp -p "$V2BX_CONFIG_PATH" "$config_backup" || {
     rm -f "$config_temp" "$sing_temp"
     return 1
+  }
+  [[ ! -f "$V2BX_SING_PATH" ]] || cp -p "$V2BX_SING_PATH" "$sing_backup" || {
+    rm -f "$config_temp" "$sing_temp" "$config_backup"
+    return 1
+  }
+
+  if ! mv -f "$config_temp" "$V2BX_CONFIG_PATH"; then
+    [[ ! -f "$config_backup" ]] || mv -f "$config_backup" "$V2BX_CONFIG_PATH"
+    rm -f "$config_temp" "$sing_temp" "$sing_backup"
+    return 1
   fi
+
+  if ! mv -f "$sing_temp" "$V2BX_SING_PATH"; then
+    [[ ! -f "$sing_backup" ]] || mv -f "$sing_backup" "$V2BX_SING_PATH"
+    rm -f "$sing_temp"
+    return 1
+  fi
+
   rm -f "$config_backup" "$sing_backup"
 }
 

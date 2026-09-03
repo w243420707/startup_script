@@ -80,22 +80,28 @@ NodeID_hysteria2="${10:-${NodeID_hysteria2:-}}"
 TG_BOT_TOKEN="${11:-${TG_BOT_TOKEN:-}}"
 TG_USER_ID="${12:-${TG_USER_ID:-${TG_CHAT_ID:-${TG_USERID:-}}}}"
 
-if [ -z "$NZ_SERVER" ] || [ -z "$NZ_CLIENT_SECRET" ] || [ -z "$NZ_UUID" ] ||
-   [ -z "$CFKEY" ] || [ -z "$CFUSER" ] || [ -z "$CFRECORD_NAME" ] ||
-   [ -z "$ApiHost" ] || [ -z "$ApiKey" ] ||
-   [ -z "$NodeID_anytls" ] || [ -z "$NodeID_hysteria2" ] ||
-   [ -z "$TG_BOT_TOKEN" ] || [ -z "$TG_USER_ID" ]; then
-  printf '%s\n' '[ERROR] NZ_SERVER, NZ_CLIENT_SECRET, NZ_UUID, CFKEY, CFUSER, CFRECORD_NAME, ApiHost, ApiKey, NodeID_anytls, NodeID_hysteria2, TG_BOT_TOKEN and TG_USER_ID are required.' >&2
-  printf '%s\n' "Usage: curl -fsSL https://raw.githubusercontent.com/w243420707/startup_script/main/install.sh | sh -s -- 'SERVER:PORT' 'CLIENT_SECRET' 'UUID' 'CFKEY' 'CFUSER' 'CFRECORD_NAME' 'ApiHost' 'ApiKey' 'NodeID_anytls' 'NodeID_hysteria2' 'TG_BOT_TOKEN' 'TG_USER_ID'" >&2
+if [[ -z "$NZ_SERVER" || -z "$NZ_CLIENT_SECRET" || -z "$NZ_UUID" ||
+      -z "$CFKEY" || -z "$CFUSER" || -z "$CFRECORD_NAME" ||
+      -z "$ApiHost" || -z "$ApiKey" ||
+      -z "$NodeID_anytls" || -z "$NodeID_hysteria2" ||
+      -z "$TG_BOT_TOKEN" || -z "$TG_USER_ID" ]]; then
+  printf '[ERROR] All 12 variables are required:\n' >&2
+  printf '  NZ_SERVER NZ_CLIENT_SECRET NZ_UUID\n' >&2
+  printf '  CFKEY CFUSER CFRECORD_NAME\n' >&2
+  printf '  ApiHost ApiKey NodeID_anytls NodeID_hysteria2\n' >&2
+  printf '  TG_BOT_TOKEN TG_USER_ID\n' >&2
   exit 1
 fi
 
-case "$NodeID_anytls:$NodeID_hysteria2" in
-  *[!0-9:]*|0:*|*:0|0[0-9]*:*|*:0[0-9]*)
-    printf '%s\n' '[ERROR] Both V2bX Node IDs must be positive integers without leading zeroes.' >&2
-    exit 1
-    ;;
-esac
+if ! [[ "$NodeID_anytls" =~ ^[1-9][0-9]*$ ]]; then
+  printf '[ERROR] NodeID_anytls must be a positive integer without leading zeroes: %s\n' "$NodeID_anytls" >&2
+  exit 1
+fi
+
+if ! [[ "$NodeID_hysteria2" =~ ^[1-9][0-9]*$ ]]; then
+  printf '[ERROR] NodeID_hysteria2 must be a positive integer without leading zeroes: %s\n' "$NodeID_hysteria2" >&2
+  exit 1
+fi
 
 mkdir -p "$STAGE_DIR"
 
