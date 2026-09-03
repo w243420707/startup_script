@@ -106,6 +106,75 @@ parse_args() {
   done
 }
 
+persist_nezha_environment() {
+  local config_path temp_path
+  local saved_server="" saved_tls="" saved_client_secret="" saved_uuid=""
+  local saved_install_url="" saved_installer_path=""
+
+  if [[ -z "$STARTUP_NZ_SERVER" &&
+        -z "$STARTUP_NZ_TLS" &&
+        -z "$STARTUP_NZ_CLIENT_SECRET" &&
+        -z "$STARTUP_NZ_UUID" &&
+        -z "$STARTUP_NZ_INSTALL_URL" &&
+        -z "$STARTUP_NZ_INSTALLER_PATH" &&
+        -z "$STARTUP_NZ_CONFIG_PATH" ]]; then
+    return 0
+  fi
+
+  config_path="${STARTUP_NZ_CONFIG_PATH:-$STATE_DIR/nezha-agent.env}"
+  temp_path="${config_path}.$$"
+
+  if [[ -r "$config_path" ]]; then
+    if ! bash -n "$config_path" >/dev/null 2>&1 || ! source "$config_path"; then
+      log_warn "The saved Nezha configuration is invalid. Replacing it."
+      saved_server=""
+      saved_tls=""
+      saved_client_secret=""
+      saved_uuid=""
+      saved_install_url=""
+      saved_installer_path=""
+    else
+      saved_server="${NZ_SERVER:-}"
+      saved_tls="${NZ_TLS:-}"
+      saved_client_secret="${NZ_CLIENT_SECRET:-}"
+      saved_uuid="${NZ_UUID:-}"
+      saved_install_url="${NZ_INSTALL_URL:-}"
+      saved_installer_path="${NZ_INSTALLER_PATH:-}"
+    fi
+  fi
+
+  saved_server="${STARTUP_NZ_SERVER:-${saved_server:-tz.114431.xyz:443}}"
+  saved_tls="${STARTUP_NZ_TLS:-${saved_tls:-true}}"
+  saved_client_secret="${STARTUP_NZ_CLIENT_SECRET:-$saved_client_secret}"
+  saved_uuid="${STARTUP_NZ_UUID:-$saved_uuid}"
+  saved_install_url="${STARTUP_NZ_INSTALL_URL:-${saved_install_url:-https://raw.githubusercontent.com/nezhahq/scripts/main/agent/install.sh}}"
+  saved_installer_path="${STARTUP_NZ_INSTALLER_PATH:-${saved_installer_path:-$STATE_DIR/agent.sh}}"
+
+  if [[ -z "$saved_client_secret" || -z "$saved_uuid" ]]; then
+    log_error "NZ_CLIENT_SECRET and NZ_UUID are required."
+    return 1
+  fi
+
+  if ! mkdir -p "$(dirname -- "$config_path")"; then
+    log_error "Could not create the Nezha configuration directory."
+    return 1
+  fi
+
+  umask 077
+  if ! printf 'NZ_SERVER=%q\nNZ_TLS=%q\nNZ_CLIENT_SECRET=%q\nNZ_UUID=%q\nNZ_INSTALL_URL=%q\nNZ_INSTALLER_PATH=%q\n' \
+    "$saved_server" "$saved_tls" "$saved_client_secret" "$saved_uuid" "$saved_install_url" "$saved_installer_path" > "$temp_path"; then
+    rm -f "$temp_path"
+    log_error "Could not write the Nezha configuration."
+    return 1
+  fi
+
+  if ! chmod 0600 "$temp_path" || ! mv -f "$temp_path" "$config_path"; then
+    rm -f "$temp_path"
+    log_error "Could not save the Nezha configuration."
+    return 1
+  fi
+}
+
 list_steps() {
   local step_file step_id step_name step_description
   local -a step_files=()
@@ -234,6 +303,9 @@ main() {
         fi
         trap 'release_lock' EXIT
         trap 'on_unexpected_error $LINENO' ERR
+        if ! persist_nezha_environment; then
+          return 1
+        fi
       fi
       detect_system
       print_system_info

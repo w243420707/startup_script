@@ -22,8 +22,8 @@ fi
 
 NZ_SERVER="${NZ_ENV_SERVER:-${NZ_SERVER:-tz.114431.xyz:443}}"
 NZ_TLS="${NZ_ENV_TLS:-${NZ_TLS:-true}}"
-NZ_CLIENT_SECRET="${NZ_ENV_CLIENT_SECRET:-${NZ_CLIENT_SECRET:-HynSbwbycKQMaUE6acxXRK5HZGEeZAqu}}"
-NZ_UUID="${NZ_ENV_UUID:-${NZ_UUID:-6936a9fd-e94e-759e-b7b1-c295f3885a35}}"
+NZ_CLIENT_SECRET="${NZ_ENV_CLIENT_SECRET:-${NZ_CLIENT_SECRET:-}}"
+NZ_UUID="${NZ_ENV_UUID:-${NZ_UUID:-}}"
 NZ_INSTALL_URL="${NZ_ENV_INSTALL_URL:-${NZ_INSTALL_URL:-https://raw.githubusercontent.com/nezhahq/scripts/main/agent/install.sh}}"
 NZ_INSTALLER_PATH="${NZ_ENV_INSTALLER_PATH:-${NZ_INSTALLER_PATH:-$STATE_DIR/agent.sh}}"
 NZ_AGENT_BINARY="/opt/nezha/agent/nezha-agent"
@@ -63,7 +63,12 @@ print_nz_config() {
 
 desired_config_signature() {
   local checksum size
-  read -r checksum size _ < <(print_nz_config | cksum)
+
+  if ! read -r checksum size _ < <(print_nz_config | cksum) ||
+     [[ -z "$checksum" || -z "$size" ]]; then
+    return 1
+  fi
+
   printf '%s:%s\n' "$checksum" "$size"
 }
 
