@@ -223,6 +223,12 @@ rm /var/lib/startup-script/step-*.state
 
 ## 更新日志
 
+### 0.9.12 (2026-09-04)
+
+- 🔄 **切换回 pufferffish 官方原版 WireProxy 1.0.9**：与 fscarmen 脚本完全一致
+- 🐛 **修复内存泄漏根本原因**：windtf fork 版本存在内存泄漏，官方版本稳定
+- ✅ **验证通过**：fscarmen 的 `menu.sh w` 使用的就是 pufferffish 1.0.9，运行稳定无内存泄漏
+
 ### 0.9.11 (2026-09-04)
 
 - 🎯 **完全集成 fscarmen 的 WireProxy 实现**：直接采用 fscarmen 脚本的配置生成逻辑和服务定义

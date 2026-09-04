@@ -4,7 +4,7 @@ STEP_ID="05"
 STEP_NAME="WARP WireProxy"
 STEP_DESCRIPTION="Install WARP WireProxy in w mode on local SOCKS5 port 40000."
 
-WIREPROXY_VERSION="1.1.3"
+WIREPROXY_VERSION="1.0.9"
 WIREPROXY_BINARY="/usr/bin/wireproxy"
 WIREPROXY_ACCOUNT="/etc/wireguard/warp-account.json"
 WIREPROXY_CONFIG="/etc/wireguard/proxy.conf"
@@ -144,7 +144,7 @@ wireproxy_install_binary() {
   local archive="$STATE_DIR/$WIREPROXY_ASSET"
   local extract_dir="$STATE_DIR/wireproxy-extract.$$"
   local temp_binary="${WIREPROXY_BINARY}.$$"
-  local url="https://github.com/windtf/wireproxy/releases/download/v$WIREPROXY_VERSION/$WIREPROXY_ASSET"
+  local url="https://github.com/pufferffish/wireproxy/releases/download/v$WIREPROXY_VERSION/$WIREPROXY_ASSET"
   local status
 
   if [[ ! -s "$archive" ]]; then
