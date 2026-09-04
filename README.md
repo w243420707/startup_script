@@ -10,7 +10,7 @@ VPS 重启后自动运行，检查和修复所有步骤，全部成功后发送 
 - ✅ **自动识别系统**：支持 Debian/Ubuntu/RHEL/CentOS/Arch/Alpine/SUSE 等主流发行版
 - ✅ **智能重试机制**：命令失败重试 3 次，步骤失败重试 2 次
 - ✅ **持久化配置**：首次运行保存全部变量，重启后自动恢复
-- ✅ **固定版本安装**：WireProxy 1.0.9 和 V2bX 0.4.0 带 SHA-256 校验
+- ✅ **成熟方案复用**：WireProxy 直接使用 fscarmen `menu.sh w` 安装，V2bX 固定为 0.4.0
 - ✅ **开机自启动**：支持 systemd 和 OpenRC，启动超时 30 分钟
 - ✅ **安全保护**：配置文件 0600 权限，API Key 通过文件描述符传递
 
@@ -62,7 +62,7 @@ curl -fsSL https://raw.githubusercontent.com/w243420707/startup_script/feat/one-
 4. **Swap 交换空间**：创建 4GB swap 文件，设置 swappiness=10，优化内存管理
 5. **关闭防火墙**：停止并删除 UFW、firewalld 等防火墙管理器，清空规则，开放所有端口
 6. **Cloudflare DDNS**：自动识别 Zone，创建或更新 A 记录，每 5 分钟同步公网 IPv4
-7. **WARP WireProxy**：安装 WireProxy 1.1.3，自动注册 WARP 账户，监听 `127.0.0.1:40000`
+7. **WARP WireProxy**：直接调用 fscarmen `menu.sh w` 安装并配置，监听 `127.0.0.1:40000`
 8. **V2bX 安装**：安装 V2bX 0.4.0 及数据文件，但不启动服务
 9. **V2bX 配置**：根据 `example/` 目录模板生成配置，启动双节点服务
 10. **验证通知**：重新验证全部步骤，自动修复异常，成功后发送 Telegram 通知
@@ -222,6 +222,12 @@ rm /var/lib/startup-script/step-*.state
 ```
 
 ## 更新日志
+
+### 0.9.13 (2026-09-04)
+
+- 🔄 **WireProxy 改为直接调用 fscarmen 原脚本**：实际执行 `wget -4 -N https://gitlab.com/fscarmen/warp/-/raw/main/menu.sh` 和 `bash menu.sh w`
+- 🧹 **删除项目内自制 WireProxy 安装逻辑**：二进制下载、WARP 注册、MTU 计算、配置和服务创建全部交给 fscarmen 维护
+- 🐛 **避免同版本不同构建**：旧安装会重新走 fscarmen `w` 模式，消除缓存复用导致的二进制不一致
 
 ### 0.9.12 (2026-09-04)
 
