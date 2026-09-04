@@ -228,6 +228,9 @@ Type=simple
 ExecStart=$WIREPROXY_BINARY -c $WIREPROXY_CONFIG
 Restart=always
 RestartSec=5s
+RuntimeMaxSec=3600
+MemoryMax=512M
+MemoryHigh=384M
 StandardOutput=journal
 StandardError=journal
 

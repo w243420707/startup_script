@@ -223,6 +223,12 @@ rm /var/lib/startup-script/step-*.state
 
 ## 更新日志
 
+### 0.9.8 (2026-09-04)
+
+- 🔧 **恢复 WireProxy 资源限制**：经测试发现 WireProxy 本身存在内存泄漏，每小时自动重启一次防止内存耗尽
+- 📊 **内存限制**：MemoryMax=512M, MemoryHigh=384M，超过会自动重启
+- ⏰ **定时重启**：RuntimeMaxSec=3600（每小时），最小化内存泄漏影响
+
 ### 0.9.7 (2026-09-04)
 
 - 🔧 **移除 WireProxy SHA-256 校验**：简化安装流程，避免校验失败
