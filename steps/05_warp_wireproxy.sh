@@ -237,7 +237,7 @@ wireproxy_register_account() {
 
 wireproxy_write_config() {
   local temp_path="${WIREPROXY_CONFIG}.$$"
-  local private_key address4 address6 public_key endpoint mtu
+  local private_key address4 address6 public_key endpoint mtu dns_order
 
   private_key="$(jq -r '.private_key' "$WIREPROXY_ACCOUNT")"
   address4="$(jq -r '.config.interface.addresses.v4' "$WIREPROXY_ACCOUNT")"
@@ -250,22 +250,87 @@ wireproxy_write_config() {
   mtu=$(calculate_best_mtu)
   echo "[INFO] Calculated optimal MTU: $mtu"
 
+  # 根据网络栈调整 DNS 优先级：IPv6 only 时 IPv6 DNS 优先，其他情况 IPv4 优先
+  if [[ -z "$address6" ]] || ip -4 addr show 2>/dev/null | grep -q 'inet '; then
+    dns_order='1.1.1.1,8.8.8.8,8.8.4.4,2606:4700:4700::1111,2001:4860:4860::8888,2001:4860:4860::8844'
+  else
+    dns_order='2606:4700:4700::1111,2001:4860:4860::8888,2001:4860:4860::8844,1.1.1.1,8.8.8.8,8.8.4.4'
+  fi
+
   umask 077
   cat > "$temp_path" <<EOF
+# The [Interface] and [Peer] configurations follow the same semantics and meaning
+# of a wg-quick configuration. To understand what these fields mean, please refer to:
+# https://wiki.archlinux.org/title/WireGuard#Persistent_configuration
+# https://www.wireguard.com/#simple-network-interface
+# The subnet should be /32 and /128 for IPv4 and v6 respectively
 [Interface]
 Address = $address4/32${address6:+, $address6/128}
 MTU = $mtu
 PrivateKey = $private_key
-DNS = 1.1.1.1,8.8.8.8,8.8.4.4,2606:4700:4700::1111,2001:4860:4860::8888,2001:4860:4860::8844
+DNS = $dns_order
 
 [Peer]
 PublicKey = $public_key
+# PresharedKey = UItQuvLsyh50ucXHfjF0bbR4IIpVBd74lwKc8uIPXXs= (optional)
 Endpoint = $endpoint
+# PersistentKeepalive = 25 (optional)
 
+# TCPClientTunnel is a tunnel listening on your machine,
+# and it forwards any TCP traffic received to the specified target via wireguard.
+# Flow:
+# <an app on your LAN> --> localhost:25565 --(wireguard)--> play.cubecraft.net:25565
+#[TCPClientTunnel]
+#BindAddress = 127.0.0.1:25565
+#Target = play.cubecraft.net:25565
+
+# TCPServerTunnel is a tunnel listening on wireguard,
+# and it forwards any TCP traffic received to the specified target via local network.
+# Flow:
+# <an app on your wireguard network> --(wireguard)--> 172.16.31.2:3422 --> localhost:25545
+#[TCPServerTunnel]
+#ListenPort = 3422
+#Target = localhost:25545
+
+# STDIOTunnel is a tunnel connecting the standard input and output of the wireproxy
+# process to the specified TCP target via wireguard.
+# This is especially useful to use wireproxy as a ProxyCommand parameter in openssh
+# For example:
+#    ssh -o ProxyCommand='wireproxy -c myconfig.conf' ssh.myserver.net
+# Flow:
+# Piped command -->(wireguard)--> ssh.myserver.net:22
+#[STDIOTunnel]
+#Target = ssh.myserver.net:22
+
+# Socks5 creates a socks5 proxy on your LAN, and all traffic would be routed via wireguard.
 [Socks5]
 BindAddress = 127.0.0.1:$WIREPROXY_PORT
 
+# Socks5 authentication parameters, specifying username and password enables
+# proxy authentication.
+#Username = ...
+# Avoid using spaces in the password field
+#Password = ...
+
+# http creates a http proxy on your LAN, and all traffic would be routed via wireguard.
+#[http]
+#BindAddress = 127.0.0.1:25345
+
+# HTTP authentication parameters, specifying username and password enables
+# proxy authentication.
+#Username = ...
+# Avoid using spaces in the password field
+#Password = ...
+
+# Specifying certificate and key enables HTTPS
+#CertFile = ...
+#KeyFile = ...
+
 [Resolve]
+# Set DNS Resovle Strategy
+# \`ipv4\`: Prioritize A records.
+# \`ipv6\`: Prioritize AAAA records.
+# \`auto\` (Default): If the WireGuard interface has IPv4 address only, it's equivalent to \`ipv4\`, otherwise it's equivalent to \`ipv6\`.
 ResolveStrategy = auto
 EOF
   chmod 0600 "$temp_path" && mv -f "$temp_path" "$WIREPROXY_CONFIG"
@@ -274,17 +339,15 @@ EOF
 wireproxy_systemd_contents() {
   cat <<EOF
 [Unit]
-Description=WARP WireProxy SOCKS5 service
-After=network-online.target
-Wants=network-online.target
+Description=WireProxy for WARP
+After=network.target
+Documentation=https://github.com/fscarmen/warp-sh
+Documentation=https://github.com/pufferffish/wireproxy
 
 [Service]
-Type=simple
 ExecStart=$WIREPROXY_BINARY -c $WIREPROXY_CONFIG
+RemainAfterExit=yes
 Restart=always
-RestartSec=5s
-StandardOutput=journal
-StandardError=journal
 
 [Install]
 WantedBy=multi-user.target
@@ -295,20 +358,11 @@ wireproxy_openrc_contents() {
   cat <<EOF
 #!/sbin/openrc-run
 
-name="wireproxy"
-description="WARP WireProxy SOCKS5 service"
+description="WireProxy for WARP"
 command="$WIREPROXY_BINARY"
 command_args="-c $WIREPROXY_CONFIG"
 command_background=true
-pidfile="/run/\${RC_SVCNAME}.pid"
-start_stop_daemon_args="--stdout /var/log/wireproxy.log --stderr /var/log/wireproxy.log"
-respawn_delay=5
-respawn_max=0
-
-depend() {
-  need net
-  after firewall
-}
+pidfile="/var/run/wireproxy.pid"
 EOF
 }
 
