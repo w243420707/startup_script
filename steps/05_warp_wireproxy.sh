@@ -91,6 +91,41 @@ wireproxy_wait_local() {
   return 1
 }
 
+wireproxy_apply_memory_leak_fix() {
+  # WireProxy 存在内存泄漏问题，每2小时自动重启一次
+  # 修改 systemd 服务文件，添加 RuntimeMaxSec 参数
+  if [[ -d /run/systemd/system ]] && command_exists systemctl; then
+    local service_file="/etc/systemd/system/wireproxy.service"
+    
+    if [[ ! -f "$service_file" ]]; then
+      log_warn "wireproxy.service not found, skipping memory leak fix."
+      return 0
+    fi
+    
+    # 检查是否已经添加了 RuntimeMaxSec
+    if grep -q '^RuntimeMaxSec=' "$service_file"; then
+      log_info "WireProxy memory leak fix already applied."
+      return 0
+    fi
+    
+    log_info "Applying WireProxy memory leak fix (auto-restart every 2 hours)."
+    
+    # 在 [Service] 段落添加 RuntimeMaxSec 和 Restart 配置
+    sed -i '/^\[Service\]/a RuntimeMaxSec=7200\nRestart=always\nRestartSec=5' "$service_file" || return 1
+    
+    # 重新加载 systemd 配置并重启服务
+    systemctl daemon-reload || return 1
+    systemctl restart wireproxy.service || return 1
+    
+    log_info "WireProxy will auto-restart every 2 hours to prevent memory leak."
+    return 0
+  fi
+  
+  # OpenRC 系统暂不支持自动重启，仅记录警告
+  log_warn "OpenRC detected. Automatic WireProxy restart for memory leak fix is not implemented."
+  return 0
+}
+
 wireproxy_install_with_fscarmen() {
   local status
 
@@ -108,6 +143,10 @@ wireproxy_install_with_fscarmen() {
   [[ "$status" -eq 0 ]] || return "$status"
 
   wireproxy_wait_local && wireproxy_works || return 1
+  
+  # 修复内存泄漏：添加定时重启配置
+  wireproxy_apply_memory_leak_fix || return 1
+  
   printf '%s\n' "$WIREPROXY_PROVIDER" > "$WIREPROXY_PROVIDER_STATE"
 }
 

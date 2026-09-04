@@ -223,6 +223,14 @@ rm /var/lib/startup-script/step-*.state
 
 ## 更新日志
 
+### 0.9.16 (2026-09-05)
+
+- 🐛 **修复 WireProxy 内存持续增长问题**：WireProxy 进程运行时内存会不断升高，最终导致系统资源耗尽
+- ⏰ **添加定时重启机制**：每 2 小时自动重启 WireProxy 服务，释放累积的内存
+- ⚙️ **使用 systemd RuntimeMaxSec**：在服务配置中添加 `RuntimeMaxSec=7200` 和 `Restart=always`
+- 🔧 **自动应用修复**：安装或修复步骤05时自动修改 wireproxy.service 文件
+- 📊 **最小化影响**：重启过程仅需几秒，对代理服务的影响极小
+
 ### 0.9.15 (2026-09-05)
 
 - ⏮️ **回退内核 WireGuard 架构**：放弃 v0.10.x 系列的 wgcf + 内核 WireGuard 方案，回退到稳定的 WireProxy 架构
