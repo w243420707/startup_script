@@ -85,6 +85,8 @@ Commands:
   ddns                 Update the configured Cloudflare A record
   check                Detect the system and list available steps
   version              Print the script version
+  wireproxy-ip         Check the VPS public IPv4 once
+  wireproxy-ip-loop    Continuously check the VPS public IPv4 every 2 minutes
   help                 Show this help message
 
 Options:
@@ -96,7 +98,7 @@ EOF
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      install|check|version|help|ddns|ddns-loop)
+      install|check|version|help|ddns|ddns-loop|wireproxy-ip|wireproxy-ip-loop)
         ACTION="$1"
         ;;
       --yes|-y)
@@ -442,6 +444,22 @@ main() {
         "$SCRIPT_DIR/startup.sh" ddns || true
         sleep 300
       done
+      ;;
+    wireproxy-ip)
+      prepare_noninteractive
+      require_root
+      init_runtime
+      persist_startup_environment
+      source "$SCRIPT_DIR/steps/05_warp_wireproxy.sh"
+      wireproxy_ip_check
+      ;;
+    wireproxy-ip-loop)
+      prepare_noninteractive
+      require_root
+      init_runtime
+      persist_startup_environment
+      source "$SCRIPT_DIR/steps/05_warp_wireproxy.sh"
+      wireproxy_ip_loop
       ;;
   esac
 }

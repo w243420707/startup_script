@@ -223,6 +223,13 @@ rm /var/lib/startup-script/step-*.state
 
 ## 更新日志
 
+### 0.9.14 (2026-09-04)
+
+- 🔍 **新增 WireProxy 出口 IP 监控服务**：每 2 分钟自动检测 VPS 公网 IPv4 地址变化
+- 🔄 **IP 变动自动重启 WireProxy**：当检测到 VPS 换 IP 后，自动重启 WireProxy 服务，避免 SOCKS5 代理失效
+- ⚙️ **systemd 和 OpenRC 双支持**：systemd 使用 timer 触发，OpenRC 使用后台循环服务
+- 💾 **IP 状态持久化**：记录历史 IP 到 `/var/lib/startup-script/wireproxy_ip.state`，首次运行仅记录不重启
+
 ### 0.9.13 (2026-09-04)
 
 - 🔄 **WireProxy 改为直接调用 fscarmen 原脚本**：实际执行 `wget -4 -N https://gitlab.com/fscarmen/warp/-/raw/main/menu.sh` 和 `bash menu.sh w`
