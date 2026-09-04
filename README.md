@@ -223,6 +223,13 @@ rm /var/lib/startup-script/step-*.state
 
 ## 更新日志
 
+### 0.9.15 (2026-09-05)
+
+- ⏮️ **回退内核 WireGuard 架构**：放弃 v0.10.x 系列的 wgcf + 内核 WireGuard 方案，回退到稳定的 WireProxy 架构
+- 🐛 **避免验证逻辑复杂性**：内核 WireGuard 接口状态检测存在多个边界情况，WireProxy 作为用户态进程更易管理
+- ✅ **保持 IP 监控功能**：继续使用 v0.9.14 的 VPS IP 变化监控和自动重启机制
+- 🎯 **稳定性优先**：WireProxy + fscarmen 脚本是经过长期验证的成熟方案
+
 ### 0.9.14 (2026-09-04)
 
 - 🔍 **新增 WireProxy 出口 IP 监控服务**：每 2 分钟自动检测 VPS 公网 IPv4 地址变化
