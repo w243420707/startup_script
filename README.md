@@ -223,6 +223,13 @@ rm /var/lib/startup-script/step-*.state
 
 ## 更新日志
 
+### 0.9.9 (2026-09-04)
+
+- 🔧 **切换回 windtf/wireproxy 1.1.3**：经对比 fscarmen 脚本，发现其使用的是 windtf fork 版本，该版本稳定无内存泄漏
+- 📊 **调整 MTU 为 1420**：与 fscarmen 配置一致，避免分片导致连接累积
+- 🌐 **扩充 DNS 列表**：添加 IPv4/IPv6 备用 DNS，提升解析稳定性
+- ❌ **移除资源限制**：windtf 1.1.3 版本稳定，无需定时重启和内存限制
+
 ### 0.9.8 (2026-09-04)
 
 - 🔧 **恢复 WireProxy 资源限制**：经测试发现 WireProxy 本身存在内存泄漏，每小时自动重启一次防止内存耗尽

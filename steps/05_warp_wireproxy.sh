@@ -4,7 +4,7 @@ STEP_ID="05"
 STEP_NAME="WARP WireProxy"
 STEP_DESCRIPTION="Install WARP WireProxy in w mode on local SOCKS5 port 40000."
 
-WIREPROXY_VERSION="1.0.9"
+WIREPROXY_VERSION="1.1.3"
 WIREPROXY_BINARY="/usr/bin/wireproxy"
 WIREPROXY_ACCOUNT="/etc/wireguard/warp-account.json"
 WIREPROXY_CONFIG="/etc/wireguard/proxy.conf"
@@ -93,7 +93,7 @@ wireproxy_install_binary() {
   local archive="$STATE_DIR/$WIREPROXY_ASSET"
   local extract_dir="$STATE_DIR/wireproxy-extract.$$"
   local temp_binary="${WIREPROXY_BINARY}.$$"
-  local url="https://github.com/pufferffish/wireproxy/releases/download/v$WIREPROXY_VERSION/$WIREPROXY_ASSET"
+  local url="https://github.com/windtf/wireproxy/releases/download/v$WIREPROXY_VERSION/$WIREPROXY_ASSET"
   local status
 
   if [[ ! -s "$archive" ]]; then
@@ -199,9 +199,9 @@ wireproxy_write_config() {
   cat > "$temp_path" <<EOF
 [Interface]
 Address = $address4/32${address6:+, $address6/128}
-MTU = 1280
+MTU = 1420
 PrivateKey = $private_key
-DNS = 1.1.1.1, 8.8.8.8
+DNS = 1.1.1.1,8.8.8.8,8.8.4.4,2606:4700:4700::1111,2001:4860:4860::8888,2001:4860:4860::8844
 
 [Peer]
 PublicKey = $public_key
@@ -228,9 +228,6 @@ Type=simple
 ExecStart=$WIREPROXY_BINARY -c $WIREPROXY_CONFIG
 Restart=always
 RestartSec=5s
-RuntimeMaxSec=3600
-MemoryMax=512M
-MemoryHigh=384M
 StandardOutput=journal
 StandardError=journal
 
