@@ -35,9 +35,60 @@ wireproxy_release_details() {
 
 wireproxy_account_valid() {
   [[ -r "$WIREPROXY_ACCOUNT" ]] &&
-    jq -e '.private_key | strings | length > 0' "$WIREPROXY_ACCOUNT" >/dev/null 2>&1 &&
-    jq -e '.config.interface.addresses.v4 | strings | length > 0' "$WIREPROXY_ACCOUNT" >/dev/null 2>&1 &&
-    jq -e '.config.peers[0].public_key | strings | length > 0' "$WIREPROXY_ACCOUNT" >/dev/null 2>&1
+    jq -e '.private_key | strings | length > 0' "$WIREPROXY_ACCOUNT" >/dev/null &&
+    jq -e '.config.interface.addresses.v4 | strings | length > 0' "$WIREPROXY_ACCOUNT" >/dev/null &&
+    jq -e '.config.peers[0].public_key | strings | length > 0' "$WIREPROXY_ACCOUNT" >/dev/null
+}
+
+calculate_best_mtu() {
+  local min_mtu=1280
+  local max_mtu=1500
+  local best_mtu=1280
+  local test_ip="162.159.192.1"
+  local ping_cmd="ping"
+  
+  # 检查是否有 IPv6 地址，如果是 IPv6 only 则用 IPv6 测试
+  if jq -e '.config.interface.addresses.v6' "$WIREPROXY_ACCOUNT" >/dev/null 2>&1; then
+    local has_ipv4=0
+    ip -4 addr show 2>/dev/null | grep -q 'inet ' || has_ipv4=1
+    if [[ $has_ipv4 -eq 1 ]]; then
+      test_ip="2606:4700:d0::a29f:c001"
+      ping_cmd="ping6"
+    fi
+  fi
+  
+  # 二分查找最大可用 MTU
+  while [[ $min_mtu -le $max_mtu ]]; do
+    local mid_mtu=$(( (min_mtu + max_mtu) / 2 ))
+    if $ping_cmd -c1 -W1 -s $mid_mtu -M do "$test_ip" >/dev/null 2>&1; then
+      best_mtu=$mid_mtu
+      min_mtu=$((mid_mtu + 1))
+    else
+      max_mtu=$((mid_mtu - 1))
+    fi
+  done
+  
+  # 微调：尝试从 best_mtu+1 到 1420，找到真正的最大值
+  for ((i = best_mtu + 1; i <= 1420; i++)); do
+    if $ping_cmd -c1 -W1 -s $i -M do "$test_ip" >/dev/null 2>&1; then
+      best_mtu=$i
+    else
+      break
+    fi
+  done
+  
+  # 减去 WireGuard 包头（IPv6: 80 字节, IPv4: 60 字节）
+  if [[ "$test_ip" =~ : ]]; then
+    best_mtu=$((best_mtu + 28 - 80))
+  else
+    best_mtu=$((best_mtu + 28 - 60))
+  fi
+  
+  # 确保范围在 1280-1420
+  [[ $best_mtu -lt 1280 ]] && best_mtu=1280
+  [[ $best_mtu -gt 1420 ]] && best_mtu=1420
+  
+  echo "$best_mtu"
 }
 
 wireproxy_config_valid() {
@@ -186,7 +237,7 @@ wireproxy_register_account() {
 
 wireproxy_write_config() {
   local temp_path="${WIREPROXY_CONFIG}.$$"
-  local private_key address4 address6 public_key endpoint
+  local private_key address4 address6 public_key endpoint mtu
 
   private_key="$(jq -r '.private_key' "$WIREPROXY_ACCOUNT")"
   address4="$(jq -r '.config.interface.addresses.v4' "$WIREPROXY_ACCOUNT")"
@@ -195,11 +246,15 @@ wireproxy_write_config() {
   endpoint="$(jq -r '.config.peers[0].endpoint.host // "engage.cloudflareclient.com:2408"' "$WIREPROXY_ACCOUNT")"
   [[ -n "$private_key" && -n "$address4" && -n "$public_key" && -n "$endpoint" ]] || return 1
 
+  # 计算最佳 MTU
+  mtu=$(calculate_best_mtu)
+  echo "[INFO] Calculated optimal MTU: $mtu"
+
   umask 077
   cat > "$temp_path" <<EOF
 [Interface]
 Address = $address4/32${address6:+, $address6/128}
-MTU = 1420
+MTU = $mtu
 PrivateKey = $private_key
 DNS = 1.1.1.1,8.8.8.8,8.8.4.4,2606:4700:4700::1111,2001:4860:4860::8888,2001:4860:4860::8844
 
