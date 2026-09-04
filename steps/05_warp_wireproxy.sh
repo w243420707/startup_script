@@ -92,7 +92,7 @@ wireproxy_wait_local() {
 }
 
 wireproxy_apply_memory_leak_fix() {
-  # WireProxy 存在内存泄漏问题，每2小时自动重启一次
+  # WireProxy 在处理大流量时存在内存泄漏问题，每1小时自动重启一次
   # 修改 systemd 服务文件，添加 RuntimeMaxSec 参数
   if [[ -d /run/systemd/system ]] && command_exists systemctl; then
     local service_file="/etc/systemd/system/wireproxy.service"
@@ -108,10 +108,10 @@ wireproxy_apply_memory_leak_fix() {
       return 0
     fi
     
-    log_info "Applying WireProxy memory leak fix (auto-restart every 2 hours)."
+    log_info "Applying WireProxy memory leak fix (auto-restart every 1 hour)."
     
     # 在 [Service] 段落添加 RuntimeMaxSec 和 Restart 配置
-    sed -i '/^\[Service\]/a RuntimeMaxSec=7200\nRestart=always\nRestartSec=5' "$service_file" || return 1
+    sed -i '/^\[Service\]/a RuntimeMaxSec=3600\nRestart=always\nRestartSec=5' "$service_file" || return 1
     
     # 重新加载 systemd 配置并重启服务
     systemctl daemon-reload || return 1
