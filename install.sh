@@ -3,11 +3,14 @@
 set -eu
 
 REPOSITORY_ARCHIVE="https://github.com/w243420707/startup_script/archive/refs/heads/feat/one-click-installer.tar.gz"
+REPOSITORY_VERSION="https://raw.githubusercontent.com/w243420707/startup_script/feat/one-click-installer/VERSION"
 INSTALL_DIR="/opt/startup-script"
 TEMP_DIR=""
 ARCHIVE_PATH=""
 STAGE_DIR=""
 BACKUP_DIR=""
+STATE_DIR="${STARTUP_SCRIPT_STATE_DIR:-/var/lib/startup-script}"
+AUTO_UPDATE_MODE=0
 
 cleanup() {
   [ -z "$TEMP_DIR" ] || rm -rf "$TEMP_DIR"
@@ -53,6 +56,17 @@ if [ "$(id -u)" -ne 0 ]; then
   exit 1
 fi
 
+if [ "$#" -eq 0 ] && [ -r "$STATE_DIR/startup.env" ]; then
+  AUTO_UPDATE_MODE=1
+  set -a
+  if ! . "$STATE_DIR/startup.env"; then
+    set +a
+    printf '%s\n' '[ERROR] Could not read the saved startup configuration.' >&2
+    exit 1
+  fi
+  set +a
+fi
+
 if ! command -v curl >/dev/null 2>&1 ||
    ! command -v tar >/dev/null 2>&1 ||
    ! command -v mktemp >/dev/null 2>&1; then
@@ -79,6 +93,46 @@ NodeID_anytls="${9:-${NodeID_anytls:-}}"
 NodeID_hysteria2="${10:-${NodeID_hysteria2:-}}"
 TG_BOT_TOKEN="${11:-${TG_BOT_TOKEN:-}}"
 TG_USER_ID="${12:-${TG_USER_ID:-${TG_CHAT_ID:-${TG_USERID:-}}}}"
+
+version_is_newer() {
+  awk -F. -v remote="$1" -v local="$2" '
+    BEGIN {
+      if (remote !~ /^[0-9]+\.[0-9]+\.[0-9]+$/) exit 1
+      if (local !~ /^[0-9]+\.[0-9]+\.[0-9]+$/) exit 0
+      split(remote, r)
+      split(local, l)
+      for (i = 1; i <= 3; i++) {
+        if ((r[i] + 0) > (l[i] + 0)) exit 0
+        if ((r[i] + 0) < (l[i] + 0)) exit 1
+      }
+      exit 1
+    }
+  '
+}
+
+run_local_install() {
+  if [ -x "$INSTALL_DIR/startup.sh" ]; then
+    exec "$INSTALL_DIR/startup.sh" install --yes
+  fi
+
+  printf '%s\n' '[ERROR] The current startup script is missing.' >&2
+  exit 1
+}
+
+if [ "$AUTO_UPDATE_MODE" -eq 1 ]; then
+  CURRENT_VERSION="$(tr -d '[:space:]' < "$INSTALL_DIR/VERSION" 2>/dev/null || printf '0.0.0')"
+  REMOTE_VERSION="$(curl -fsSL --connect-timeout 15 --max-time 45 "$REPOSITORY_VERSION" 2>/dev/null | tr -d '[:space:]')" || {
+    printf '%s\n' '[WARN] Could not check GitHub for a newer startup script. Using the local version.' >&2
+    run_local_install
+  }
+
+  if ! version_is_newer "$REMOTE_VERSION" "$CURRENT_VERSION"; then
+    printf '[INFO] Startup script %s is current; running local self-healing.\n' "$CURRENT_VERSION" >&2
+    run_local_install
+  fi
+
+  printf '[INFO] A newer startup script was found: %s -> %s.\n' "$CURRENT_VERSION" "$REMOTE_VERSION" >&2
+fi
 
 if [ -z "$NZ_SERVER" ] || [ -z "$NZ_CLIENT_SECRET" ] || [ -z "$NZ_UUID" ] ||
    [ -z "$CFKEY" ] || [ -z "$CFUSER" ] || [ -z "$CFRECORD_NAME" ] ||

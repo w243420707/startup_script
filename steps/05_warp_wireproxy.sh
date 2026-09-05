@@ -2,7 +2,7 @@
 
 STEP_ID="05"
 STEP_NAME="WARP WireProxy"
-STEP_DESCRIPTION="Install WARP WireProxy on local SOCKS5 port 40000 and restart it when the VPS public IPv4 changes."
+STEP_DESCRIPTION="Install WARP WireProxy on local SOCKS5 port 40000 and restart it hourly or when the VPS public IPv4 changes."
 
 FSCARMEN_WARP_URL="https://gitlab.com/fscarmen/warp/-/raw/main/menu.sh"
 FSCARMEN_WARP_DIR="$STATE_DIR/fscarmen-warp"
@@ -17,6 +17,9 @@ WIREPROXY_IP_SYSTEMD_SERVICE="/etc/systemd/system/startup-wireproxy-ip.service"
 WIREPROXY_IP_SYSTEMD_TIMER="/etc/systemd/system/startup-wireproxy-ip.timer"
 WIREPROXY_IP_OPENRC_SERVICE="/etc/init.d/startup-wireproxy-ip"
 WIREPROXY_IP_INTERVAL_SECONDS="120"
+WIREPROXY_RESTART_SYSTEMD_DROPIN="/etc/systemd/system/wireproxy.service.d/startup-restart.conf"
+WIREPROXY_RESTART_OPENRC_SERVICE="/etc/init.d/startup-wireproxy-restart"
+WIREPROXY_RESTART_INTERVAL_SECONDS="3600"
 
 wireproxy_service_exists() {
   if [[ -d /run/systemd/system ]] && command_exists systemctl; then
@@ -59,6 +62,12 @@ wireproxy_works() {
   grep -Eq '^warp=(on|plus)$' <<< "$trace"
 }
 
+wireproxy_healthy() {
+  wireproxy_service_running &&
+    wireproxy_listening &&
+    wireproxy_works
+}
+
 wireproxy_provider_valid() {
   [[ -x "$FSCARMEN_WARP_MANAGER" ]] &&
     grep -qx "$WIREPROXY_PROVIDER" "$WIREPROXY_PROVIDER_STATE" 2>/dev/null
@@ -91,39 +100,78 @@ wireproxy_wait_local() {
   return 1
 }
 
-wireproxy_apply_memory_leak_fix() {
-  # WireProxy 在处理大流量时存在内存泄漏问题，每1小时自动重启一次
-  # 修改 systemd 服务文件，添加 RuntimeMaxSec 参数
+wireproxy_restart_systemd_dropin_contents() {
+  cat <<EOF
+[Service]
+RuntimeMaxSec=$WIREPROXY_RESTART_INTERVAL_SECONDS
+Restart=always
+RestartSec=5
+EOF
+}
+
+wireproxy_restart_openrc_service_contents() {
+  local bash_path script_path
+  bash_path="$(command -v bash)"
+  script_path="$SCRIPT_DIR/startup.sh"
+  cat <<EOF
+#!/sbin/openrc-run
+
+name="startup-wireproxy-restart"
+description="Restart WireProxy every hour"
+command="$bash_path"
+command_args="$script_path wireproxy-restart-loop"
+command_background="yes"
+pidfile="/run/startup-wireproxy-restart.pid"
+depend() { need net; after wireproxy; }
+EOF
+}
+
+wireproxy_restart_policy_healthy() {
   if [[ -d /run/systemd/system ]] && command_exists systemctl; then
-    local service_file="/etc/systemd/system/wireproxy.service"
-    
-    if [[ ! -f "$service_file" ]]; then
-      log_warn "wireproxy.service not found, skipping memory leak fix."
-      return 0
-    fi
-    
-    # 检查是否已经添加了 RuntimeMaxSec
-    if grep -q '^RuntimeMaxSec=' "$service_file"; then
-      log_info "WireProxy memory leak fix already applied."
-      return 0
-    fi
-    
-    log_info "Applying WireProxy memory leak fix (auto-restart every 1 hour)."
-    
-    # 在 [Service] 段落添加 RuntimeMaxSec 和 Restart 配置
-    sed -i '/^\[Service\]/a RuntimeMaxSec=3600\nRestart=always\nRestartSec=5' "$service_file" || return 1
-    
-    # 重新加载 systemd 配置并重启服务
-    systemctl daemon-reload || return 1
-    systemctl restart wireproxy.service || return 1
-    
-    log_info "WireProxy will auto-restart every 2 hours to prevent memory leak."
-    return 0
+    [[ -r "$WIREPROXY_RESTART_SYSTEMD_DROPIN" ]] &&
+      grep -Fqx "RuntimeMaxSec=$WIREPROXY_RESTART_INTERVAL_SECONDS" "$WIREPROXY_RESTART_SYSTEMD_DROPIN" &&
+      grep -Fqx 'Restart=always' "$WIREPROXY_RESTART_SYSTEMD_DROPIN" &&
+      grep -Fqx 'RestartSec=5' "$WIREPROXY_RESTART_SYSTEMD_DROPIN"
+    return $?
   fi
-  
-  # OpenRC 系统暂不支持自动重启，仅记录警告
-  log_warn "OpenRC detected. Automatic WireProxy restart for memory leak fix is not implemented."
-  return 0
+
+  if command_exists rc-service && command_exists rc-update; then
+    [[ -x "$WIREPROXY_RESTART_OPENRC_SERVICE" ]] &&
+      grep -Fqx 'command_args="'"$SCRIPT_DIR"'/startup.sh wireproxy-restart-loop"' "$WIREPROXY_RESTART_OPENRC_SERVICE" &&
+      rc-update show 2>/dev/null | grep -Eq '^[[:space:]]*startup-wireproxy-restart[[:space:]]' &&
+      rc-service startup-wireproxy-restart status >/dev/null 2>&1
+    return $?
+  fi
+
+  return 1
+}
+
+wireproxy_install_restart_policy() {
+  if [[ -d /run/systemd/system ]] && command_exists systemctl; then
+    mkdir -p "$(dirname -- "$WIREPROXY_RESTART_SYSTEMD_DROPIN")" &&
+      wireproxy_install_generated_file "$WIREPROXY_RESTART_SYSTEMD_DROPIN" 0644 wireproxy_restart_systemd_dropin_contents &&
+      run_with_retries "$COMMAND_RETRIES" systemctl daemon-reload
+    return $?
+  fi
+
+  if command_exists rc-service && command_exists rc-update; then
+    wireproxy_install_generated_file "$WIREPROXY_RESTART_OPENRC_SERVICE" 0755 wireproxy_restart_openrc_service_contents &&
+      run_with_retries "$COMMAND_RETRIES" rc-update add startup-wireproxy-restart default &&
+      run_with_retries "$COMMAND_RETRIES" rc-service startup-wireproxy-restart restart
+    return $?
+  fi
+
+  log_error "Hourly WireProxy restarts need systemd or OpenRC."
+  return 1
+}
+
+wireproxy_restart_loop() {
+  while true; do
+    sleep "$WIREPROXY_RESTART_INTERVAL_SECONDS"
+    if ! wireproxy_restart; then
+      log_warn "The scheduled WireProxy restart failed and will be retried in one hour."
+    fi
+  done
 }
 
 wireproxy_install_with_fscarmen() {
@@ -143,10 +191,9 @@ wireproxy_install_with_fscarmen() {
   [[ "$status" -eq 0 ]] || return "$status"
 
   wireproxy_wait_local && wireproxy_works || return 1
-  
-  # 修复内存泄漏：添加定时重启配置
-  wireproxy_apply_memory_leak_fix || return 1
-  
+  wireproxy_install_restart_policy || return 1
+  wireproxy_restart && wireproxy_wait_local && wireproxy_works || return 1
+
   printf '%s\n' "$WIREPROXY_PROVIDER" > "$WIREPROXY_PROVIDER_STATE"
 }
 
@@ -187,6 +234,15 @@ wireproxy_ip_check() {
 
   read -r previous_ip < "$WIREPROXY_IP_STATE" || previous_ip=""
   if [[ "$previous_ip" == "$current_ip" ]]; then
+    if wireproxy_healthy; then
+      return 0
+    fi
+
+    log_warn "WireProxy is unhealthy even though the VPS public IPv4 is unchanged. Restarting it."
+    wireproxy_restart && wireproxy_wait_local && wireproxy_works || {
+      log_error "WireProxy did not recover from the health-check failure."
+      return 1
+    }
     return 0
   fi
 
@@ -259,7 +315,7 @@ depend() { need net; after wireproxy; }
 EOF
 }
 
-wireproxy_ip_install_generated_file() {
+wireproxy_install_generated_file() {
   local path="$1"
   local mode="$2"
   local generator="$3"
@@ -309,15 +365,15 @@ wireproxy_ip_scheduler_healthy() {
 
 wireproxy_ip_install_scheduler() {
   if [[ -d /run/systemd/system ]] && command_exists systemctl; then
-    wireproxy_ip_install_generated_file "$WIREPROXY_IP_SYSTEMD_SERVICE" 0644 wireproxy_ip_systemd_service_contents &&
-      wireproxy_ip_install_generated_file "$WIREPROXY_IP_SYSTEMD_TIMER" 0644 wireproxy_ip_systemd_timer_contents &&
+    wireproxy_install_generated_file "$WIREPROXY_IP_SYSTEMD_SERVICE" 0644 wireproxy_ip_systemd_service_contents &&
+      wireproxy_install_generated_file "$WIREPROXY_IP_SYSTEMD_TIMER" 0644 wireproxy_ip_systemd_timer_contents &&
       run_with_retries "$COMMAND_RETRIES" systemctl daemon-reload &&
       run_with_retries "$COMMAND_RETRIES" systemctl enable --now startup-wireproxy-ip.timer
     return $?
   fi
 
   if command_exists rc-service && command_exists rc-update; then
-    wireproxy_ip_install_generated_file "$WIREPROXY_IP_OPENRC_SERVICE" 0755 wireproxy_ip_openrc_service_contents &&
+    wireproxy_install_generated_file "$WIREPROXY_IP_OPENRC_SERVICE" 0755 wireproxy_ip_openrc_service_contents &&
       run_with_retries "$COMMAND_RETRIES" rc-update add startup-wireproxy-ip default &&
       run_with_retries "$COMMAND_RETRIES" rc-service startup-wireproxy-ip restart
     return $?
@@ -333,6 +389,7 @@ step_check() {
     wireproxy_service_exists &&
     wireproxy_service_enabled &&
     wireproxy_service_running &&
+    wireproxy_restart_policy_healthy &&
     wireproxy_config_valid &&
     wireproxy_listening &&
     wireproxy_works &&
@@ -342,12 +399,16 @@ step_check() {
 step_repair() {
   if [[ "$DRY_RUN" == "1" ]]; then
     log_info "The original fscarmen menu.sh w installer will configure WireProxy on 127.0.0.1:40000."
+    log_info "WireProxy will restart after each hour of continuous runtime."
     log_info "A service will check the VPS public IPv4 every 2 minutes and restart WireProxy after a change."
     return 0
   fi
 
   if wireproxy_provider_valid && wireproxy_service_exists && wireproxy_config_valid; then
-    wireproxy_restart && wireproxy_wait_local && wireproxy_works || return 1
+    wireproxy_install_restart_policy &&
+      wireproxy_restart &&
+      wireproxy_wait_local &&
+      wireproxy_works || return 1
     wireproxy_ip_install_scheduler
     return $?
   fi

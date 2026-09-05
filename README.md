@@ -10,8 +10,11 @@ VPS 重启后自动运行，检查和修复所有步骤，全部成功后发送 
 - ✅ **自动识别系统**：支持 Debian/Ubuntu/RHEL/CentOS/Arch/Alpine/SUSE 等主流发行版
 - ✅ **智能重试机制**：命令失败重试 3 次，步骤失败重试 2 次
 - ✅ **持久化配置**：首次运行保存全部变量，重启后自动恢复
+- ✅ **开机自动更新**：每次开机检查 GitHub 版本，仅在远程版本更高时自动更新
 - ✅ **成熟方案复用**：WireProxy 直接使用 fscarmen `menu.sh w` 安装，V2bX 固定为 0.4.0
 - ✅ **开机自启动**：支持 systemd 和 OpenRC，启动超时 30 分钟
+- ✅ **V2bX 自动拉起**：每分钟检查一次运行状态，发现服务掉线后自动启动
+- ✅ **WireProxy 自动维护**：每小时重启释放累积内存，每 2 分钟检查出网健康状态和公网 IPv4
 - ✅ **安全保护**：配置文件 0600 权限，API Key 通过文件描述符传递
 
 ## 快速开始
@@ -64,10 +67,11 @@ curl -fsSL https://raw.githubusercontent.com/w243420707/startup_script/feat/one-
 6. **Cloudflare DDNS**：自动识别 Zone，创建或更新 A 记录，每 5 分钟同步公网 IPv4
 7. **WARP WireProxy**：直接调用 fscarmen `menu.sh w` 安装并配置，监听 `127.0.0.1:40000`
 8. **V2bX 安装**：安装 V2bX 0.4.0 及数据文件，但不启动服务
-9. **V2bX 配置**：根据 `example/` 目录模板生成配置，启动双节点服务
-10. **验证通知**：重新验证全部步骤，自动修复异常，成功后发送 Telegram 通知
+9. **V2bX 配置**：生成双节点配置并启动服务，每分钟检查一次，掉线时自动拉起
+10. **旧任务清理**：删除旧版本遗留的 VPS 每 3 小时整机重启任务，避免节点被主动中断
+11. **验证通知**：重新验证全部步骤，自动修复异常，成功后发送 Telegram 通知
 
-脚本会注册 systemd 或 OpenRC 开机服务。命令失败会自动重试，服务或配置异常会在本次运行及以后每次开机时继续修复。
+脚本会注册 systemd 或 OpenRC 开机服务。每次开机先检查 GitHub 是否有更高版本；GitHub 暂时不可访问时继续使用本地版本自愈。命令失败会自动重试，服务或配置异常会在本次运行及以后每次开机时继续修复。
 
 ## 变量说明
 
@@ -147,6 +151,9 @@ curl -fsSL https://raw.githubusercontent.com/w243420707/startup_script/feat/one-
 # 重新安装和修复所有步骤
 /opt/startup-script/startup.sh install --yes
 
+# 手动检查 GitHub 更新并执行自愈
+/opt/startup-script/install.sh
+
 # 手动触发一次 DDNS 更新
 /opt/startup-script/startup.sh ddns
 
@@ -192,11 +199,16 @@ rc-service startup-script status      # OpenRC
 ```bash
 systemctl status startup-script           # systemd
 systemctl status startup-cloudflare-ddns.timer
+systemctl status startup-wireproxy-ip.timer
+systemctl status startup-v2bx-watchdog.timer
 systemctl status wireproxy
 systemctl status V2bX
 
 rc-service startup-script status          # OpenRC
 rc-service startup-cloudflare-ddns status
+rc-service startup-wireproxy-ip status
+rc-service startup-wireproxy-restart status
+rc-service startup-v2bx-watchdog status
 rc-service wireproxy status
 rc-service V2bX status
 ```
@@ -208,6 +220,9 @@ rc-service V2bX status
 
 # 测试 WARP 连通性
 curl -x socks5h://127.0.0.1:40000 https://www.cloudflare.com/cdn-cgi/trace
+
+# 手动执行一次 WireProxy IP 和出网健康检查
+/opt/startup-script/startup.sh wireproxy-ip-check
 
 # 查看 V2bX 日志
 journalctl -u V2bX -n 50
@@ -222,6 +237,34 @@ rm /var/lib/startup-script/step-*.state
 ```
 
 ## 更新日志
+
+### 0.9.21 (2026-09-05)
+
+- 🔄 **增加开机自动更新**：VPS 每次开机先检查 GitHub 上的脚本版本
+- 🔢 **仅更新更高版本**：避免远程版本较旧时覆盖本地版本
+- 🛡️ **更新失败继续自愈**：GitHub 无法访问时继续使用本地脚本
+- 🔐 **复用已保存配置**：自动更新使用 `/var/lib/startup-script/startup.env`
+
+### 0.9.20 (2026-09-05)
+
+- 🐛 **修复 WireProxy IP 检测命令错误**：补齐 `wireproxy-ip-check` 命令，恢复 systemd timer 的实际检查能力
+- 🔍 **增加 WireProxy 出网健康检查**：公网 IPv4 未变化但 SOCKS5 出口异常时也会自动重启 WireProxy
+- 🧹 **移除整机定时重启**：清理旧版本每 3 小时重启 VPS 的任务，避免 VPS 和节点被主动中断
+- 🔄 **保留 WireProxy 单独重启**：继续每小时重启 WireProxy，降低长时间运行后的内存压力
+
+### 0.9.19 (2026-09-05)
+
+- 🔍 **增加 V2bX 存活检测**：每 1 分钟检查一次 V2bX 服务运行状态
+- 🔄 **掉线自动拉起**：检测到 V2bX 停止或进入失败状态后，自动清除失败状态并启动服务
+- 🛡️ **避免安装冲突**：检测任务与主安装脚本共用运行锁，升级或修改配置期间不会抢占启动
+- 🐧 **systemd 和 OpenRC 双支持**：systemd 使用 timer，OpenRC 使用轻量后台检查循环
+
+### 0.9.18 (2026-09-05)
+
+- 🔄 **增加整机定时重启**：VPS 每次开机或首次启用后运行满 3 小时自动 `reboot`
+- ⏱️ **使用相对时间计时**：不绑定 00:00、03:00 等固定钟点，每次重启后重新计算 3 小时
+- 🛠️ **确保 WireProxy 每小时重启**：改用 systemd drop-in 覆盖旧版配置，升级后会从旧的 2 小时正确调整为 1 小时
+- 🐧 **补齐 OpenRC 支持**：OpenRC 系统通过后台服务实现 WireProxy 每小时重启和 VPS 每 3 小时重启
 
 ### 0.9.17 (2026-09-05)
 

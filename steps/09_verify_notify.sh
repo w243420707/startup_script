@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-STEP_ID="08"
+STEP_ID="09"
 STEP_NAME="Final verification"
 STEP_DESCRIPTION="Recheck every previous step, self-heal failures, and send one Telegram success notice."
 
@@ -14,6 +14,7 @@ PREVIOUS_STEP_FILES=(
   "$SCRIPT_DIR/steps/05_warp_wireproxy.sh"
   "$SCRIPT_DIR/steps/06_v2bx_install.sh"
   "$SCRIPT_DIR/steps/07_v2bx_config.sh"
+  "$SCRIPT_DIR/steps/08_periodic_reboot.sh"
 )
 
 verify_previous_steps() {
@@ -69,7 +70,7 @@ send_telegram_success() {
   [[ "$attempts" =~ ^[0-9]+$ ]] || attempts=3
   (( attempts >= 1 )) || attempts=1
   (( attempts <= 10 )) || attempts=10
-  
+
   message="✅ VPS 开机脚本安装完成
 
 📋 基本信息
@@ -85,9 +86,10 @@ send_telegram_success() {
 ✓ Cloudflare DDNS：$CFRECORD_NAME
 ✓ WARP 代理：127.0.0.1:40000
 ✓ V2bX 节点：$NodeID_anytls, $NodeID_hysteria2
+✓ 自动维护：V2bX 每分钟自检，WireProxy 每 1 小时重启并检测异常
 
 🎉 所有服务运行正常！"
-  
+
   for ((attempt = 1; attempt <= attempts; attempt++)); do
     response="$(curl -fsS --connect-timeout 15 --max-time 45 -X POST \
       --config /dev/fd/3 \
@@ -123,7 +125,7 @@ step_check() {
 
 step_repair() {
   if [[ "$DRY_RUN" == "1" ]]; then
-    log_info "Steps 00-06 will be rechecked and repaired before one Telegram success notice is sent."
+    log_info "Steps 00-08 will be rechecked and repaired before one Telegram success notice is sent."
     return 0
   fi
 

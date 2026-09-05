@@ -7,13 +7,16 @@ OPENRC_SERVICE_PATH="/etc/local.d/startup-script.start"
 systemd_service_contents() {
   local shell_path="$1"
   local script_path="$2"
-  local escaped_script_path
+  local state_dir="$3"
+  local install_path
+  local escaped_install_path
 
-  printf -v escaped_script_path '%q' "$script_path"
+  install_path="$(dirname -- "$script_path")/install.sh"
+  printf -v escaped_install_path '%q' "$install_path"
 
   cat <<EOF
 [Unit]
-Description=VPS startup self-healing script
+Description=VPS startup auto-update and self-healing script
 Wants=network-online.target
 After=network-online.target
 StartLimitIntervalSec=10min
@@ -21,7 +24,8 @@ StartLimitBurst=5
 
 [Service]
 Type=simple
-ExecStart=$shell_path $escaped_script_path install --yes
+ExecStart=$shell_path $escaped_install_path
+Environment=STARTUP_SCRIPT_STATE_DIR=$state_dir
 Environment=DEBIAN_FRONTEND=noninteractive
 Environment=APT_LISTCHANGES_FRONTEND=none
 Environment=NEEDRESTART_MODE=a
@@ -37,10 +41,14 @@ EOF
 openrc_service_contents() {
   local shell_path="$1"
   local script_path="$2"
+  local state_dir="$3"
+  local install_path
 
+  install_path="$(dirname -- "$script_path")/install.sh"
   cat <<EOF
 #!/bin/sh
-exec $shell_path $(printf '%q' "$script_path") install --yes
+export STARTUP_SCRIPT_STATE_DIR=$(printf '%q' "$state_dir")
+exec $shell_path $(printf '%q' "$install_path")
 EOF
 }
 
@@ -53,7 +61,7 @@ ensure_systemd_service() {
     log_warn "Could not create the systemd service directory."
     return 1
   fi
-  if ! systemd_service_contents "$shell_path" "$SCRIPT_DIR/startup.sh" > "$temp_file"; then
+  if ! systemd_service_contents "$shell_path" "$SCRIPT_DIR/startup.sh" "$STATE_DIR" > "$temp_file"; then
     rm -f "$temp_file"
     log_warn "Could not generate the systemd service file."
     return 1
@@ -81,7 +89,7 @@ ensure_openrc_service() {
 
   shell_path="$(command -v bash)"
   temp_file="$STATE_DIR/startup-script.start.$$"
-  if ! mkdir -p "$(dirname -- "$OPENRC_SERVICE_PATH")" || ! openrc_service_contents "$shell_path" "$SCRIPT_DIR/startup.sh" > "$temp_file"; then
+  if ! mkdir -p "$(dirname -- "$OPENRC_SERVICE_PATH")" || ! openrc_service_contents "$shell_path" "$SCRIPT_DIR/startup.sh" "$STATE_DIR" > "$temp_file"; then
     rm -f "$temp_file"
     log_warn "Could not generate the OpenRC startup script."
     return 1

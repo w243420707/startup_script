@@ -86,7 +86,12 @@ Commands:
   check                Detect the system and list available steps
   version              Print the script version
   wireproxy-ip         Check the VPS public IPv4 once
+  wireproxy-ip-check   Check the VPS public IPv4 and WireProxy health once
   wireproxy-ip-loop    Continuously check the VPS public IPv4 every 2 minutes
+  wireproxy-restart-loop
+                       Restart WireProxy after every hour of runtime
+  v2bx-watchdog        Start V2bX when its service is not running
+  v2bx-watchdog-loop   Check V2bX every minute on OpenRC
   help                 Show this help message
 
 Options:
@@ -98,7 +103,7 @@ EOF
 parse_args() {
   while [[ $# -gt 0 ]]; do
     case "$1" in
-      install|check|version|help|ddns|ddns-loop|wireproxy-ip|wireproxy-ip-loop)
+      install|check|version|help|ddns|ddns-loop|wireproxy-ip|wireproxy-ip-check|wireproxy-ip-loop|wireproxy-restart-loop|v2bx-watchdog|v2bx-watchdog-loop)
         ACTION="$1"
         ;;
       --yes|-y)
@@ -445,7 +450,7 @@ main() {
         sleep 300
       done
       ;;
-    wireproxy-ip)
+    wireproxy-ip|wireproxy-ip-check)
       prepare_noninteractive
       require_root
       init_runtime
@@ -460,6 +465,35 @@ main() {
       persist_startup_environment
       source "$SCRIPT_DIR/steps/05_warp_wireproxy.sh"
       wireproxy_ip_loop
+      ;;
+    wireproxy-restart-loop)
+      prepare_noninteractive
+      require_root
+      init_runtime
+      source "$SCRIPT_DIR/steps/05_warp_wireproxy.sh"
+      wireproxy_restart_loop
+      ;;
+    v2bx-watchdog)
+      prepare_noninteractive
+      require_root
+      init_runtime
+      local lock_status=0
+      acquire_lock || lock_status="$?"
+      if [[ "$lock_status" == "2" ]]; then
+        return 0
+      elif [[ "$lock_status" != "0" ]]; then
+        return "$lock_status"
+      fi
+      trap 'release_lock' EXIT
+      source "$SCRIPT_DIR/steps/07_v2bx_config.sh"
+      v2bx_watchdog_once
+      ;;
+    v2bx-watchdog-loop)
+      prepare_noninteractive
+      require_root
+      init_runtime
+      source "$SCRIPT_DIR/steps/07_v2bx_config.sh"
+      v2bx_watchdog_loop
       ;;
   esac
 }
